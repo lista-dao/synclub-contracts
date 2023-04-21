@@ -16,7 +16,6 @@ import {
   ETHERSCAN_API_KEY,
   SMART_CHAIN_RPC,
   CHAIN_ID,
-  GAS_PRICE,
 } from "./environment";
 
 task("deploySnBnbProxy", "Deploy SnBnb Proxy only")
@@ -103,10 +102,17 @@ const config: HardhatUserConfig = {
       chainId: Number(CHAIN_ID),
       accounts: [DEPLOYER_PRIVATE_KEY],
     },
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
+  },
+  mocha: {
+    timeout: 40000,
   },
   gasReporter: {
     currency: "USD",
-    gasPrice: Number(GAS_PRICE),
+    gasPrice: 100,
+    // enabled: process.env.REPORT_GAS ? true : false,
   },
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
