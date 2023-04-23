@@ -1,6 +1,7 @@
 import { ethers, config } from "hardhat";
 import { readFileSync } from "fs";
 import { sync } from "glob";
+import type { MockContract } from "@ethereum-waffle/mock-contract";
 import { deployMockContract as _deployMockContract } from "@ethereum-waffle/mock-contract";
 
 const readContractAbi = (contractName: string) => {
@@ -20,7 +21,10 @@ const readContractAbi = (contractName: string) => {
 export async function deployFixture() {
   const deployMockContract = async (contractName: string) => {
     const [deployer] = await ethers.getSigners();
-    return _deployMockContract(deployer, readContractAbi(contractName));
+    return _deployMockContract<MockContract>(
+      deployer,
+      readContractAbi(contractName)
+    );
   };
 
   // Bind a reference to a function that can deploy a contract on the local network.
