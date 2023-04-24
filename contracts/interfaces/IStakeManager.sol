@@ -43,6 +43,7 @@ interface IStakeManager {
     function claimWithdraw(uint256 _idx) external;
 
     function undelegate()
+        payable
         external
         returns (uint256 _uuid, uint256 _amount);
 

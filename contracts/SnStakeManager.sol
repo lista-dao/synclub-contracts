@@ -235,7 +235,6 @@ contract SnStakeManager is
             address(this),
             _amountInSnBnb
         );
-
         emit RequestWithdraw(msg.sender, _amountInSnBnb);
     }
 
@@ -272,12 +271,18 @@ contract SnStakeManager is
      */
     function undelegate()
         external
+        payable
         override
         whenNotPaused
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
-        _uuid = nextUndelegateUUID++; 
+        uint256 relayFee = IStaking(nativeStaking).getRelayerFee();
+        uint256 relayFeeReceived = msg.value;
+
+        require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
+
+        _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalSnBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
@@ -299,7 +304,8 @@ contract SnStakeManager is
 
         ISnBnb(snBnb).burn(address(this), totalSnBnbToBurn_);
 
-        IStaking(nativeStaking).undelegate(bcValidator, _amount);
+        // undelegate through native staking contract
+        IStaking(nativeStaking).undelegate{value: msg.value}(bcValidator, _amount);
     }
 
     function claimUndelegated()
