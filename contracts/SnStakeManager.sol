@@ -34,8 +34,10 @@ contract SnStakeManager is
 
     uint256 public nextUndelegateUUID;
     uint256 public confirmedUndelegatedUUID;
-    uint256 public minDelegateThreshold;
-    uint256 public minUndelegateThreshold;
+
+    bool public reserveMode; // true if delegate/undelegate use reserve funds
+    uint256 public reserveAmount; // will be used to adjust minThreshold delegate/undelegate for natvie staking
+    uint256 public availableReserveAmount;
 
     address private snBnb;
     address private bcValidator;
@@ -50,7 +52,6 @@ contract SnStakeManager is
     address private manager;
     address private proposedManager;
     uint256 public synFee; // range {0-10_000_000_000}
-    mapping(uint256 => bool) public rewardsIdUsed;
 
     address public revenuePool;
     address public redirectAddress;
@@ -101,8 +102,6 @@ contract SnStakeManager is
         manager = _manager;
         snBnb = _snBnb;
         bcValidator = _validator;
-        minDelegateThreshold = 1e18;
-        minUndelegateThreshold = 1e18;
         synFee = _synFee;
         revenuePool = _revenuePool;
 
@@ -110,8 +109,6 @@ contract SnStakeManager is
         emit SetBotRole(_bot);
         emit SetBCValidator(bcValidator);
         emit SetRevenuePool(revenuePool);
-        emit SetMinDelegateThreshold(minDelegateThreshold);
-        emit SetMinUndelegateThreshold(minUndelegateThreshold);
         emit SetSynFee(_synFee);
     }
 
@@ -147,14 +144,15 @@ contract SnStakeManager is
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
 
         require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
-        require(_amount >= minDelegateThreshold, "Insufficient Deposit Amount");
-
+        require(availableReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
+        require(_amount + reserveAmount >= IStaking(nativeStaking).getMinDelegation(), "Insufficient Deposit Amount");
         // delegate through native staking contract
-        IStaking(nativeStaking).delegate{value: _amount + msg.value}(bcValidator, _amount);
+        IStaking(nativeStaking).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount);
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
 
         emit Delegate(_amount);
+        emit DelegateReserve(reserveAmount);
     }
 
     function redelegate(address srcValidator, address dstValidator, uint256 amount)
@@ -169,7 +167,7 @@ contract SnStakeManager is
         uint256 relayFeeReceived = msg.value;
 
         require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
-        require(amount >= minDelegateThreshold, "Insufficient Deposit Amount");
+        require(amount >= IStaking(nativeStaking).getMinDelegation(), "Insufficient Deposit Amount");
 
         // redelegate through native staking contract
         IStaking(nativeStaking).redelegate{value: msg.value}(srcValidator, dstValidator, amount);
@@ -287,8 +285,10 @@ contract SnStakeManager is
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
+        require(reserveAmount >= IStaking(nativeStaking).getDelegated(address(this), bcValidator),
+             "Insufficient Delegate Amount");
         require(
-            _amount >= minUndelegateThreshold,
+            _amount + reserveAmount >= IStaking(nativeStaking).getMinDelegation(),
             "Insufficient Withdraw Amount"
         );
 
@@ -305,7 +305,9 @@ contract SnStakeManager is
         ISnBnb(snBnb).burn(address(this), totalSnBnbToBurn_);
 
         // undelegate through native staking contract
-        IStaking(nativeStaking).undelegate{value: msg.value}(bcValidator, _amount);
+        IStaking(nativeStaking).undelegate{value: msg.value}(bcValidator, _amount + reserveAmount);
+
+        emit UndelegateReserve(reserveAmount);
     }
 
     function claimUndelegated()
@@ -337,6 +339,27 @@ contract SnStakeManager is
         uint256 failedAmount = IStaking(nativeStaking).claimUndelegated();
         amountToDelegate += failedAmount;
         return failedAmount;
+    }
+
+    /**
+     * @dev Deposit reserved funds to the contract
+     */
+    function depositReserve() external payable override whenNotPaused onlyRedirectAddress{
+        uint256 amount = msg.value;
+        require(amount > 0, "Invalid Amount");
+
+        availableReserveAmount += amount;
+    }
+
+    function withdrawReserve(uint256 amount) external override whenNotPaused onlyRedirectAddress{
+        require(amount <= availableReserveAmount, "Insufficient Balance");
+        availableReserveAmount -= amount;
+        AddressUpgradeable.sendValue(payable(msg.sender), amount);
+    }
+
+    function setReserveAmount(uint256 amount) external override onlyManager {
+        reserveAmount = amount;
+        emit SetReserveAmount(amount);
     }
 
     function proposeNewManager(address _address) external override onlyManager {
@@ -388,28 +411,6 @@ contract SnStakeManager is
         bcValidator = _address;
 
         emit SetBCValidator(_address);
-    }
-
-    function setMinDelegateThreshold(uint256 _minDelegateThreshold)
-        external
-        override
-        onlyManager
-    {
-        require(_minDelegateThreshold > 0, "Invalid Threshold");
-        minDelegateThreshold = _minDelegateThreshold;
-
-        emit SetMinDelegateThreshold(_minDelegateThreshold);
-    }
-
-    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
-        external
-        override
-        onlyManager
-    {
-        require(_minUndelegateThreshold > 0, "Invalid Threshold");
-        minUndelegateThreshold = _minUndelegateThreshold;
-
-        emit SetMinUndelegateThreshold(_minUndelegateThreshold);
     }
 
     function setSynFee(uint256 _synFee)
@@ -593,6 +594,11 @@ contract SnStakeManager is
 
     modifier onlyManager() {
         require(msg.sender == manager, "Accessible only by Manager");
+        _;
+    }
+
+    modifier onlyRedirectAddress() {
+        require(msg.sender == redirectAddress, "Accessible only by RedirectAddress");
         _;
     }
 }

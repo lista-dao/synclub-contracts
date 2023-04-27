@@ -43,8 +43,8 @@ interface IStakeManager {
     function claimWithdraw(uint256 _idx) external;
 
     function undelegate()
-        payable
         external
+        payable
         returns (uint256 _uuid, uint256 _amount);
 
     function claimUndelegated() external returns (uint256, uint256);
@@ -52,6 +52,12 @@ interface IStakeManager {
     function claimFailedDelegation() external returns (uint256);
 
     function compoundRewards() external;
+
+    function depositReserve() external payable;
+
+    function withdrawReserve(uint256) external;
+
+    function setReserveAmount(uint256) external;
 
     function proposeNewManager(address _address) external;
 
@@ -62,11 +68,6 @@ interface IStakeManager {
     function revokeBotRole(address _address) external;
 
     function setBCValidator(address _address) external;
-
-    function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
-
-    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
-        external;
 
     function setSynFee(uint256 _synFee) external;
 
@@ -126,11 +127,12 @@ interface IStakeManager {
     event ProposeManager(address indexed _address);
     event SetBotRole(address indexed _address);
     event RevokeBotRole(address indexed _address);
-    event SetMinDelegateThreshold(uint256 _minDelegateThreshold);
-    event SetMinUndelegateThreshold(uint256 _minUndelegateThreshold);
     event SetSynFee(uint256 _synFee);
     event SetRedirectAddress(address indexed _address);
     event SetBCValidator(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);
+    event DelegateReserve(uint256 _amount);
+    event UndelegateReserve(uint256 _amount);
+    event SetReserveAmount(uint256 _amount);
 }
