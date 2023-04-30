@@ -19,11 +19,17 @@ const readContractAbi = (contractName: string) => {
 };
 
 export async function deployFixture() {
-  const deployMockContract = async (contractName: string) => {
+  const deployMockContract = async (
+    contractName: string,
+    options?: { address: string; override?: boolean }
+  ) => {
     const [deployer] = await ethers.getSigners();
+    // @ts-ignore
+    deployer.provider._hardhatNetwork = true;
     return _deployMockContract<MockContract>(
       deployer,
-      readContractAbi(contractName)
+      readContractAbi(contractName),
+      options
     );
   };
 

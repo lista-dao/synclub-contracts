@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { loadFixture } from "ethereum-waffle";
 
 import { accountFixture, deployFixture } from "../fixture";
@@ -17,11 +17,24 @@ describe("SnBnb::setup", function () {
     const { deployContract } = await loadFixture(deployFixture);
     const snBnb = await deployContract("SnBnb");
 
-    await expect(snBnb.initialize(ADDRESS_ZERO)).to.be.revertedWith(
-      "zero address provided"
-    );
+    await expect(
+      upgrades.deployProxy(await ethers.getContractFactory("SnBnb"), [
+        ADDRESS_ZERO,
+      ])
+    ).to.be.revertedWith("zero address provided");
 
-    await snBnb.initialize(this.addrs[0].address);
+    await expect(snBnb.initialize(this.addrs[1].address)).to.be.revertedWith(
+      "Initializable: contract is already initialized"
+    );
+  });
+
+  it("Should be able to deploy proxy contract", async function () {
+    const snBnb = await upgrades.deployProxy(
+      await ethers.getContractFactory("SnBnb"),
+      [this.addrs[0].address]
+    );
+    await snBnb.deployed();
+
     expect(await snBnb.name()).to.equals("Synclub BNB");
     expect(await snBnb.symbol()).to.equals("SnBNB");
     // check admin role
@@ -31,9 +44,5 @@ describe("SnBnb::setup", function () {
         this.addrs[0].address
       )
     ).to.equals(true);
-
-    await expect(snBnb.initialize(this.addrs[1].address)).to.be.revertedWith(
-      "Initializable: contract is already initialized"
-    );
   });
 });

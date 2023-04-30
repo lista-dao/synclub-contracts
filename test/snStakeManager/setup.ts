@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { loadFixture } from "ethereum-waffle";
 import type { MockContract } from "@ethereum-waffle/mock-contract";
 
@@ -19,9 +19,6 @@ describe("SnStakeManager::setup", function () {
   });
 
   it("Can't deploy with zero contract", async function () {
-    const { deployContract } = await loadFixture(deployFixture);
-    const stakeManager = await deployContract("SnStakeManager");
-
     const allArgs = [
       [
         ADDRESS_ZERO,
@@ -80,57 +77,56 @@ describe("SnStakeManager::setup", function () {
     ];
 
     for (let i = 0; i < allArgs.length; i++) {
-      await expect(stakeManager.initialize(...allArgs[i])).to.be.revertedWith(
-        "zero address provided"
-      );
+      await expect(
+        upgrades.deployProxy(
+          await ethers.getContractFactory("SnStakeManager"),
+          allArgs[i]
+        )
+      ).to.be.revertedWith("zero address provided");
     }
 
     await expect(
-      stakeManager.initialize(
+      upgrades.deployProxy(await ethers.getContractFactory("SnStakeManager"), [
         this.addrs[0].address,
         this.addrs[1].address,
         this.addrs[2].address,
         this.addrs[3].address,
         1_000_000_000_00,
         this.addrs[4].address,
-        this.addrs[5].address
-      )
+        this.addrs[5].address,
+      ])
     ).to.be.revertedWith("_synFee must not exceed (100%)");
   });
 
   it("Should be able to setup contract with properly configurations", async function () {
-    const { deployContract } = await loadFixture(deployFixture);
-    const stakeManager = await deployContract("SnStakeManager");
-
-    const tx = await stakeManager.initialize(
-      mockSnBNB.address,
-      this.addrs[1].address,
-      this.addrs[2].address,
-      this.addrs[3].address,
-      1_000,
-      this.addrs[4].address,
-      this.addrs[5].address
+    const stakeManager = await upgrades.deployProxy(
+      await ethers.getContractFactory("SnStakeManager"),
+      [
+        mockSnBNB.address,
+        this.addrs[1].address,
+        this.addrs[2].address,
+        this.addrs[3].address,
+        1_000,
+        this.addrs[4].address,
+        this.addrs[5].address,
+      ]
     );
 
-    expect(tx)
+    expect(stakeManager.deployTransaction)
       .to.emit(stakeManager, "SetManager")
       .withArgs(this.addrs[2].address);
-    expect(tx)
+    expect(stakeManager.deployTransaction)
       .to.emit(stakeManager, "SetBotRole")
       .withArgs(this.addrs[3].address);
-    expect(tx)
+    expect(stakeManager.deployTransaction)
       .to.emit(stakeManager, "SetBCValidator")
       .withArgs(this.addrs[5].address);
-    expect(tx)
+    expect(stakeManager.deployTransaction)
       .to.emit(stakeManager, "SetRevenuePool")
       .withArgs(this.addrs[4].address);
-    expect(tx)
-      .to.emit(stakeManager, "SetMinDelegateThreshold")
-      .withArgs("1000000000000000000");
-    expect(tx)
-      .to.emit(stakeManager, "SetMinUndelegateThreshold")
-      .withArgs("1000000000000000000");
-    expect(tx).to.emit(stakeManager, "SetSynFee").withArgs(1_000);
+    expect(stakeManager.deployTransaction)
+      .to.emit(stakeManager, "SetSynFee")
+      .withArgs(1_000);
 
     await expect(
       stakeManager.initialize(

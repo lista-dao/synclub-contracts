@@ -1,11 +1,11 @@
 import { expect } from "chai";
 import { Contract } from "ethers";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { loadFixture } from "ethereum-waffle";
 
-import { accountFixture, deployFixture } from "../fixture";
+import { accountFixture } from "../fixture";
 
-describe("SnBnb::setup", function () {
+describe("SnBnb::mint", function () {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   let snBnb: Contract;
 
@@ -13,9 +13,12 @@ describe("SnBnb::setup", function () {
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
     this.deployer = deployer;
-    const { deployContract } = await loadFixture(deployFixture);
-    snBnb = await deployContract("SnBnb");
-    await snBnb.initialize(deployer.address);
+
+    snBnb = await upgrades.deployProxy(
+      await ethers.getContractFactory("SnBnb"),
+      [deployer.address]
+    );
+    await snBnb.deployed();
   });
 
   it("Can't setStakeManager if caller is not admin", async function () {

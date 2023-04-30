@@ -1,14 +1,13 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { Contract } from "ethers";
 import { loadFixture } from "ethereum-waffle";
 import type { MockContract } from "@ethereum-waffle/mock-contract";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
-import type { SignerWithAddress } from "../types";
 import { accountFixture, deployFixture } from "../fixture";
 
 describe("SnStakeManager::access", function () {
-  const ONE_E18 = "1000000000000000000";
   const ADDRESS_ZERO = ethers.constants.AddressZero;
 
   let mockSnBNB: MockContract;
@@ -21,24 +20,25 @@ describe("SnStakeManager::access", function () {
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
     this.deployer = deployer;
-    const { deployContract, deployMockContract } = await loadFixture(
-      deployFixture
-    );
+    const { deployMockContract } = await loadFixture(deployFixture);
     mockSnBNB = await deployMockContract("SnBnb");
-    stakeManager = await deployContract("SnStakeManager");
     admin = this.addrs[1];
     manager = this.addrs[2];
     bot = this.addrs[3];
 
-    await stakeManager.initialize(
-      mockSnBNB.address,
-      admin.address,
-      manager.address,
-      bot.address,
-      1_000,
-      this.addrs[4].address,
-      this.addrs[5].address
+    stakeManager = await upgrades.deployProxy(
+      await ethers.getContractFactory("SnStakeManager"),
+      [
+        mockSnBNB.address,
+        admin.address,
+        manager.address,
+        bot.address,
+        1_000,
+        this.addrs[4].address,
+        this.addrs[5].address,
+      ]
     );
+    await stakeManager.deployed();
   });
 
   it("Can't propose new manager if caller is not manager", async function () {
@@ -150,41 +150,37 @@ describe("SnStakeManager::access", function () {
       .withArgs(this.addrs[8].address);
   });
 
-  it("Can't set min delegate threshold if caller is not manager", async function () {
+  it("Can't set reserve amount if caller is not manager", async function () {
     await expect(
-      stakeManager.connect(this.deployer).setMinDelegateThreshold(bot.address)
+      stakeManager.connect(this.deployer).setReserveAmount(0)
     ).to.be.revertedWith("Accessible only by Manager");
-
-    await expect(
-      stakeManager.connect(manager).setMinDelegateThreshold(0)
-    ).to.be.revertedWith("Invalid Threshold");
   });
 
-  it("Should be set min delegate threshold by manager", async function () {
-    expect(await stakeManager.minDelegateThreshold()).to.equals(ONE_E18);
-    const tx = await stakeManager.connect(manager).setMinDelegateThreshold(1);
+  it("Should be able to set reserve amount by manager", async function () {
+    expect(await stakeManager.reserveAmount()).to.equals(0);
+    const tx = await stakeManager.connect(manager).setReserveAmount(1);
 
-    expect(tx).to.emit(stakeManager, "SetMinDelegateThreshold").withArgs(1);
-    expect(await stakeManager.minDelegateThreshold()).to.equals(1);
+    expect(tx).to.emit(stakeManager, "SetReserveAmount").withArgs(1);
+    expect(await stakeManager.reserveAmount()).to.equals(1);
   });
 
-  it("Can't set min undelegate threshold if caller is not manager", async function () {
-    await expect(
-      stakeManager.connect(this.deployer).setMinUndelegateThreshold(bot.address)
-    ).to.be.revertedWith("Accessible only by Manager");
+  // it("Can't set min undelegate threshold if caller is not manager", async function () {
+  //   await expect(
+  //     stakeManager.connect(this.deployer).setMinUndelegateThreshold(bot.address)
+  //   ).to.be.revertedWith("Accessible only by Manager");
 
-    await expect(
-      stakeManager.connect(manager).setMinUndelegateThreshold(0)
-    ).to.be.revertedWith("Invalid Threshold");
-  });
+  //   await expect(
+  //     stakeManager.connect(manager).setMinUndelegateThreshold(0)
+  //   ).to.be.revertedWith("Invalid Threshold");
+  // });
 
-  it("Should be able to set min undelegate threshold by manager", async function () {
-    expect(await stakeManager.minUndelegateThreshold()).to.equals(ONE_E18);
-    const tx = await stakeManager.connect(manager).setMinUndelegateThreshold(1);
+  // it("Should be able to set min undelegate threshold by manager", async function () {
+  //   expect(await stakeManager.minUndelegateThreshold()).to.equals(ONE_E18);
+  //   const tx = await stakeManager.connect(manager).setMinUndelegateThreshold(1);
 
-    expect(tx).to.emit(stakeManager, "SetMinUndelegateThreshold").withArgs(1);
-    expect(await stakeManager.minUndelegateThreshold()).to.equals(1);
-  });
+  //   expect(tx).to.emit(stakeManager, "SetMinUndelegateThreshold").withArgs(1);
+  //   expect(await stakeManager.minUndelegateThreshold()).to.equals(1);
+  // });
 
   it("Can't set sync fee if caller is not admin", async function () {
     await expect(
