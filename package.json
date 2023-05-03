@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "deploy": "npx hardhat run ./scripts/deploy.ts",
-    "test": "npx hardhat test"
+    "test": "hardhat --network hardhat test test/snStakeManager/staking.ts",
+    "coverage": "hardhat --network hardhat coverage"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,7 @@
   },
   "homepage": "https://github.com/stader-labs/bnbX#readme",
   "devDependencies": {
+    "@ethereum-waffle/mock-contract": "^4.0.4",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
     "@nomiclabs/hardhat-etherscan": "^3.0.4",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
@@ -42,6 +44,7 @@
     "eslint-plugin-promise": "^5.2.0",
     "ethereum-waffle": "^3.4.4",
     "ethers": "^5.6.8",
+    "golb": "^0.0.9",
     "hardhat": "^2.9.7",
     "hardhat-forta": "^0.0.3",
     "hardhat-gas-reporter": "^1.0.8",
