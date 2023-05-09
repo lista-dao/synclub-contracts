@@ -27,7 +27,6 @@ contract SnStakeManager is
     using SafeMath for uint256;
     
     uint256 public totalSnBnbToBurn;
-    uint256 public totalClaimableBnb; // total BNB available to be claimed and resides in contract
     
     uint256 public totalDelegated; // total BNB delegated
     uint256 public amountToDelegate; // total BNB to delegate for next batch
@@ -35,7 +34,6 @@ contract SnStakeManager is
     uint256 public nextUndelegateUUID;
     uint256 public confirmedUndelegatedUUID;
 
-    bool public reserveMode; // true if delegate/undelegate use reserve funds
     uint256 public reserveAmount; // will be used to adjust minThreshold delegate/undelegate for natvie staking
     uint256 public availableReserveAmount;
 
@@ -146,10 +144,12 @@ contract SnStakeManager is
         require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
         require(availableReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
         require(_amount + reserveAmount >= IStaking(nativeStaking).getMinDelegation(), "Insufficient Deposit Amount");
-        // delegate through native staking contract
-        IStaking(nativeStaking).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount);
+        
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
+        
+        // delegate through native staking contract
+        IStaking(nativeStaking).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount);
 
         emit Delegate(_amount);
         emit DelegateReserve(reserveAmount);
@@ -216,7 +216,7 @@ contract SnStakeManager is
         totalSnBnbToBurn += _amountInSnBnb;
         uint256 totalBnbToWithdraw = convertSnBnbToBnb(totalSnBnbToBurn);
         require(
-            totalBnbToWithdraw <= totalDelegated,
+            totalBnbToWithdraw <= totalDelegated + amountToDelegate,
             "Not enough BNB to withdraw"
         );
 
@@ -285,7 +285,7 @@ contract SnStakeManager is
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
-        require(reserveAmount >= IStaking(nativeStaking).getDelegated(address(this), bcValidator),
+        require(_amount + reserveAmount >= IStaking(nativeStaking).getDelegated(address(this), bcValidator),
              "Insufficient Delegate Amount");
         require(
             _amount + reserveAmount >= IStaking(nativeStaking).getMinDelegation(),
