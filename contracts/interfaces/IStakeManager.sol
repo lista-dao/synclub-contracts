@@ -33,6 +33,11 @@ interface IStakeManager {
         payable
         returns (uint256 _amount);
 
+    function delegateWithReserve()
+        external
+        payable
+        returns (uint256 _amount);
+
     function redelegate(address srcValidator, address dstValidator, uint256 amount)
         external
         payable

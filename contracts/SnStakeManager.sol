@@ -125,11 +125,40 @@ contract SnStakeManager is
     }
 
     /**
-     * @dev Allows bot to delegate users' funds to native staking contract
+     * @dev Allows bot to delegate users' funds to native staking contract without reserved BNB
      * @return _amount - Amount of funds transferred for staking
      * @notice The amount should be greater than minimum delegation on native staking contract
      */
     function delegate()
+        external
+        payable
+        override
+        whenNotPaused
+        onlyRole(BOT)
+        returns (uint256 _amount)
+    {
+        uint256 relayFee = IStaking(nativeStaking).getRelayerFee();
+        uint256 relayFeeReceived = msg.value;
+        _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
+
+        require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
+        require(_amount >= IStaking(nativeStaking).getMinDelegation(), "Insufficient Deposit Amount");
+        
+        amountToDelegate = amountToDelegate - _amount;
+        totalDelegated += _amount;
+        
+        // delegate through native staking contract
+        IStaking(nativeStaking).delegate{value: _amount + msg.value}(bcValidator, _amount);
+
+        emit Delegate(_amount);
+    }
+
+    /**
+     * @dev Allows bot to delegate users' funds + reserved BNB to native staking contract
+     * @return _amount - Amount of funds transferred for staking
+     * @notice The amount should be greater than minimum delegation on native staking contract
+     */
+    function delegateWithReserve()
         external
         payable
         override
