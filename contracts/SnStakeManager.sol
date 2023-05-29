@@ -27,7 +27,7 @@ contract SnStakeManager is
     using SafeMath for uint256;
     
     uint256 public totalSnBnbToBurn;
-    
+
     uint256 public totalDelegated; // total BNB delegated
     uint256 public amountToDelegate; // total BNB to delegate for next batch
 
@@ -178,7 +178,7 @@ contract SnStakeManager is
         totalDelegated += _amount;
         
         // delegate through native staking contract
-        IStaking(nativeStaking).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount);
+        IStaking(nativeStaking).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
 
         emit Delegate(_amount);
         emit DelegateReserve(reserveAmount);
@@ -314,15 +314,13 @@ contract SnStakeManager is
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
-        require(_amount + reserveAmount >= IStaking(nativeStaking).getDelegated(address(this), bcValidator),
-             "Insufficient Delegate Amount");
         require(
             _amount + reserveAmount >= IStaking(nativeStaking).getMinDelegation(),
             "Insufficient Withdraw Amount"
         );
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
-            startTime: 0,
+            startTime: block.timestamp,
             endTime: 0,
             amount: _amount,
             amountInSnBnb: totalSnBnbToBurn_
