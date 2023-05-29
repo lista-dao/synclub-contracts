@@ -76,6 +76,8 @@ interface IStakeManager {
 
     function setSynFee(uint256 _synFee) external;
 
+    function setRevenuePool(address _address) external;
+
     function setRedirectAddress(address _address) external;
 
     function getTotalPooledBnb() external view returns (uint256);
