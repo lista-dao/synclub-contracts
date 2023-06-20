@@ -120,6 +120,7 @@ interface IStakeManager {
         view
         returns (uint256);
 
+    event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
@@ -132,8 +133,6 @@ interface IStakeManager {
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
     event ProposeManager(address indexed _address);
-    event SetBotRole(address indexed _address);
-    event RevokeBotRole(address indexed _address);
     event SetSynFee(uint256 _synFee);
     event SetRedirectAddress(address indexed _address);
     event SetBCValidator(address indexed _address);

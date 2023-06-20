@@ -7,7 +7,6 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISnBnb} from "./interfaces/ISnBnb.sol";
@@ -24,7 +23,6 @@ contract SnStakeManager is
     AccessControlUpgradeable
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
-    using SafeMath for uint256;
     
     uint256 public totalSnBnbToBurn;
 
@@ -104,7 +102,6 @@ contract SnStakeManager is
         revenuePool = _revenuePool;
 
         emit SetManager(_manager);
-        emit SetBotRole(_bot);
         emit SetBCValidator(bcValidator);
         emit SetRevenuePool(revenuePool);
         emit SetSynFee(_synFee);
@@ -122,6 +119,8 @@ contract SnStakeManager is
         amountToDelegate += amount;
 
         ISnBnb(snBnb).mint(msg.sender, snBnbToMint);
+
+        emit Deposit(msg.sender, msg.value);
     }
 
     /**
@@ -410,20 +409,18 @@ contract SnStakeManager is
         emit SetManager(manager);
     }
 
-    function setBotRole(address _address) external override onlyManager {
+    function setBotRole(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_address != address(0), "zero address provided");
 
-        _setupRole(BOT, _address);
+        _grantRole(BOT, _address);
 
-        emit SetBotRole(_address);
     }
 
-    function revokeBotRole(address _address) external override onlyManager {
+    function revokeBotRole(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_address != address(0), "zero address provided");
 
         _revokeRole(BOT, _address);
 
-        emit RevokeBotRole(_address);
     }
 
     /// @param _address - Beck32 decoding of Address of Validator Wallet on Beacon Chain with `0x` prefix
