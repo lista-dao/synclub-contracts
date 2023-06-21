@@ -218,7 +218,7 @@ contract SnStakeManager is
         uint256 amount = IStaking(NATIVE_STAKING).claimReward();
         
         if (synFee > 0) {
-            uint256 fee = amount.mul(synFee).div(TEN_DECIMALS);
+            uint256 fee = amount * synFee / TEN_DECIMALS;
             require(revenuePool != address(0x0), "revenue pool not set");
             AddressUpgradeable.sendValue(payable(revenuePool), fee);
             amount -= fee;
@@ -409,17 +409,17 @@ contract SnStakeManager is
         emit SetManager(manager);
     }
 
-    function setBotRole(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setBotRole(address _address) external override {
         require(_address != address(0), "zero address provided");
 
-        _grantRole(BOT, _address);
+        grantRole(BOT, _address);
 
     }
 
-    function revokeBotRole(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function revokeBotRole(address _address) external override {
         require(_address != address(0), "zero address provided");
 
-        _revokeRole(BOT, _address);
+        revokeRole(BOT, _address);
 
     }
 
