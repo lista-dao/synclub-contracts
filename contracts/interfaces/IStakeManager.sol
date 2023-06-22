@@ -141,4 +141,6 @@ interface IStakeManager {
     event DelegateReserve(uint256 _amount);
     event UndelegateReserve(uint256 _amount);
     event SetReserveAmount(uint256 _amount);
+    event ClaimUndelegated(uint256 _uuid, uint256 _amount);
+    event ClaimFailedDelegation(uint256 _amount);
 }

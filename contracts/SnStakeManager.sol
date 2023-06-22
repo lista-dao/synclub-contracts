@@ -115,7 +115,7 @@ contract SnStakeManager is
         require(amount > 0, "Invalid Amount");
 
         uint256 snBnbToMint = convertBnbToSnBnb(amount);
-
+        require(snBnbToMint > 0, "Invalid SnBnb Amount");
         amountToDelegate += amount;
 
         ISnBnb(snBnb).mint(msg.sender, snBnbToMint);
@@ -140,7 +140,7 @@ contract SnStakeManager is
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
 
-        require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
+        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(_amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
         
         amountToDelegate = amountToDelegate - _amount;
@@ -194,6 +194,7 @@ contract SnStakeManager is
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
 
+        require(srcValidator != dstValidator, "Invalid Redelegation");
         require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
         require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
@@ -332,7 +333,7 @@ contract SnStakeManager is
 
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(bcValidator, _amount + reserveAmount);
-
+        
         emit UndelegateReserve(reserveAmount);
     }
 
@@ -353,6 +354,8 @@ contract SnStakeManager is
         }
         _uuid = confirmedUndelegatedUUID;
         _amount = undelegatedAmount;
+
+        emit ClaimUndelegated(_uuid, _amount);
     }
 
     function claimFailedDelegation()
@@ -364,6 +367,8 @@ contract SnStakeManager is
     {
         uint256 failedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         amountToDelegate += failedAmount;
+
+        emit ClaimFailedDelegation(failedAmount);
         return failedAmount;
     }
 
