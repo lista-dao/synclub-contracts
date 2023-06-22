@@ -169,7 +169,7 @@ contract SnStakeManager is
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
 
-        require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
+        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(availableReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
         require(_amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
         
@@ -195,7 +195,7 @@ contract SnStakeManager is
         uint256 relayFeeReceived = msg.value;
 
         require(srcValidator != dstValidator, "Invalid Redelegation");
-        require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
+        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
         // redelegate through native staking contract
@@ -307,7 +307,7 @@ contract SnStakeManager is
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
 
-        require(relayFeeReceived >= relayFee, "Insufficient RelayFee");
+        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
 
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalSnBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
