@@ -33,7 +33,7 @@ contract SnStakeManager is
     uint256 public confirmedUndelegatedUUID;
 
     uint256 public reserveAmount; // will be used to adjust minThreshold delegate/undelegate for natvie staking
-    uint256 public availableReserveAmount;
+    uint256 public totalReserveAmount;
 
     address private snBnb;
     address private bcValidator;
@@ -170,7 +170,7 @@ contract SnStakeManager is
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
 
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(availableReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
+        require(totalReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
         require(_amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
         
         amountToDelegate = amountToDelegate - _amount;
@@ -379,12 +379,12 @@ contract SnStakeManager is
         uint256 amount = msg.value;
         require(amount > 0, "Invalid Amount");
 
-        availableReserveAmount += amount;
+        totalReserveAmount += amount;
     }
 
     function withdrawReserve(uint256 amount) external override whenNotPaused onlyRedirectAddress{
-        require(amount <= availableReserveAmount, "Insufficient Balance");
-        availableReserveAmount -= amount;
+        require(amount <= totalReserveAmount, "Insufficient Balance");
+        totalReserveAmount -= amount;
         AddressUpgradeable.sendValue(payable(msg.sender), amount);
     }
 
