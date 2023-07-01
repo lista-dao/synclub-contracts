@@ -16,7 +16,7 @@ contract SnBnb is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
 
     function initialize(address _admin) external override initializer {
         __AccessControl_init();
-        __ERC20_init("Synclub BNB", "SnBNB");
+        __ERC20_init("Synclub Staked BNB", "SnBNB");
 
         require(_admin != address(0), "zero address provided");
 

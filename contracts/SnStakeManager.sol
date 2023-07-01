@@ -358,7 +358,7 @@ contract SnStakeManager is
         emit ClaimUndelegated(_uuid, _amount);
     }
 
-    function claimFailedDelegation()
+    function claimFailedDelegation(bool withReserve)
         external
         override
         whenNotPaused
@@ -366,9 +366,14 @@ contract SnStakeManager is
         returns (uint256 _amount)
     {
         uint256 failedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
-        amountToDelegate += failedAmount;
+        if (withReserve) {
+            require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
+            amountToDelegate += failedAmount - reserveAmount;
+        } else {
+            amountToDelegate += failedAmount;
+        }
 
-        emit ClaimFailedDelegation(failedAmount);
+        emit ClaimFailedDelegation(failedAmount, withReserve);
         return failedAmount;
     }
 

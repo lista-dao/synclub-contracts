@@ -54,7 +54,7 @@ interface IStakeManager {
 
     function claimUndelegated() external returns (uint256, uint256);
 
-    function claimFailedDelegation() external returns (uint256);
+    function claimFailedDelegation(bool) external returns (uint256);
 
     function compoundRewards() external;
 
@@ -142,5 +142,5 @@ interface IStakeManager {
     event UndelegateReserve(uint256 _amount);
     event SetReserveAmount(uint256 _amount);
     event ClaimUndelegated(uint256 _uuid, uint256 _amount);
-    event ClaimFailedDelegation(uint256 _amount);
+    event ClaimFailedDelegation(uint256 _amount, bool _withReserve);
 }
