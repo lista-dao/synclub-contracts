@@ -369,8 +369,10 @@ contract SnStakeManager is
         if (withReserve) {
             require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
             amountToDelegate += failedAmount - reserveAmount;
+            totalDelegated -= failedAmount -reserveAmount;
         } else {
             amountToDelegate += failedAmount;
+            totalDelegated -= failedAmount;
         }
 
         emit ClaimFailedDelegation(failedAmount, withReserve);
