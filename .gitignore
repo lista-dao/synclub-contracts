@@ -21,3 +21,5 @@ artifacts
 .certora*
 resource_errors.json
 last_conf*
+
+.idea
