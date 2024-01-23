@@ -9,9 +9,9 @@ import "./interfaces/ISnBnb.sol";
 contract LisBNB is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
     address private stakeManager;
 
-    string private constant _name = "Lista BNB";
+    string private constant _name = "Lista Staked BNB";
 
-    string private constant _symbol = "LisBNB";
+    string private constant _symbol = "lisBNB";
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -20,18 +20,18 @@ contract LisBNB is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
 
     function initialize(address _admin) external override initializer {
         __AccessControl_init();
-        __ERC20_init("Synclub Staked BNB", "SnBNB");
+        __ERC20_init(_name, _symbol);
 
         require(_admin != address(0), "zero address provided");
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
-    function name() public view virtual override returns (string memory) {
+    function name() public pure override returns (string memory) {
         return _name;
     }
 
-    function symbol() public view virtual override returns (string memory) {
+    function symbol() public pure override returns (string memory) {
         return _symbol;
     }
 
