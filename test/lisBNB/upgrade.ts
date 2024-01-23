@@ -32,9 +32,9 @@ describe("LisBNB::upgrade", function () {
     await snBNB.deployed();
     expect(await snBNB.name()).to.equals("Synclub Staked BNB");
     expect(await snBNB.symbol()).to.equals("SnBNB");
-    await upgrades.upgradeProxy(snBNB.address, LisBNB);
-    expect(await snBNB.name()).to.equals("Lista Staked BNB");
-    expect(await snBNB.symbol()).to.equals("lisBNB");
+    const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
+    expect(await lisBNB.name()).to.equals("Lista Staked BNB");
+    expect(await lisBNB.symbol()).to.equals("lisBNB");
   });
 
   it("the admin roles shouldn't be changed after upgraded and can be changed by admin after upgraded", async function () {
@@ -130,12 +130,11 @@ describe("LisBNB::upgrade", function () {
     expect(balance3).to.equals(9);
 
     const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
-    expect(lisBNB.address).to.equals(snBNB.address);
 
     const [balanceAfter1, balanceAfter2, balanceAfter3] = await Promise.all([
-      snBNB.balanceOf(recipient1),
-      snBNB.balanceOf(recipient2),
-      snBNB.balanceOf(recipient3),
+      lisBNB.balanceOf(recipient1),
+      lisBNB.balanceOf(recipient2),
+      lisBNB.balanceOf(recipient3),
     ]);
     expect(balance1).to.equals(balanceAfter1);
     expect(balance2).to.equals(balanceAfter2);
