@@ -32,10 +32,12 @@ NODE_ENV=main npx hardhat deployStakeManagerProxy <snBnb> <admin> <manager> <bot
 NODE_ENV=main npx hardhat upgradeStakeManagerProxy <proxyAddress> --network <network>
 NODE_ENV=main npx hardhat deployStakeManagerImpl --network <network>
 
+# deploy the implementation of LisBNB, which is the new version of SnBNB
+NODE_ENV=main npx hardhat deployLisBNBImpl --network <network>
 ```
 
 ## Verifying on etherscan
 
 ```bash
-npx hardhat verify <address> <...args> --network <network>
+NODE_ENV=main npx hardhat verify <address> <...args> --network <network>
 ```

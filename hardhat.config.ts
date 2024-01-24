@@ -1,6 +1,11 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
-import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
+import {
+  deployDirect,
+  deployProxy,
+  upgradeProxy,
+  validateUpgrade,
+} from "./scripts/tasks";
 
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
@@ -74,6 +79,14 @@ task(
   "Deploy StakeManager Implementation only"
 ).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
   await deployDirect(hre, "SnStakeManager");
+});
+
+task(
+  "deployLisBNBImpl",
+  "Deploy LisBNB Implementation only, which is the new version of SnBnb"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await validateUpgrade(hre, "SnBnb", "LisBNB");
+  await deployDirect(hre, "LisBNB");
 });
 
 const config: HardhatUserConfig = {
