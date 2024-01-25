@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
-/// @title SLisBnb interface
+/// @title SLisBNB interface
 interface ISLisBNB is IERC20Upgradeable {
     function initialize(address _manager) external;
 
