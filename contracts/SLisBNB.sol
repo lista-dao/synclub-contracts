@@ -4,9 +4,9 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-import "./interfaces/ISnBnb.sol";
+import "./interfaces/ISLisBNB.sol";
 
-contract SLisBNB is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
+contract SLisBNB is ISLisBNB, ERC20Upgradeable, AccessControlUpgradeable {
     address private stakeManager;
 
     string private constant _name = "Staked Lista BNB";
