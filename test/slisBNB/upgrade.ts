@@ -4,7 +4,7 @@ import { loadFixture } from "ethereum-waffle";
 
 import { accountFixture } from "../fixture";
 
-describe("LisBNB::upgrade", function () {
+describe("SLisBNB::upgrade", function () {
   before(async function () {
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
@@ -13,33 +13,33 @@ describe("LisBNB::upgrade", function () {
 
   it("should be able to upgrade", async function () {
     const SnBNB = await ethers.getContractFactory("SnBnb");
-    const LisBNB = await ethers.getContractFactory("LisBNB");
+    const SLisBNB = await ethers.getContractFactory("SLisBNB");
     const snBNB = await upgrades.deployProxy(SnBNB, [this.deployer.address], {
       initializer: "initialize",
     });
     await snBNB.deployed();
-    await upgrades.validateUpgrade(snBNB.address, LisBNB);
-    const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
-    expect(lisBNB.address).to.equals(snBNB.address);
+    await upgrades.validateUpgrade(snBNB.address, SLisBNB);
+    const slisBNB = await upgrades.upgradeProxy(snBNB.address, SLisBNB);
+    expect(slisBNB.address).to.equals(snBNB.address);
   });
 
   it("name and symbol should be changed correctly after upgraded", async function () {
     const SnBNB = await ethers.getContractFactory("SnBnb");
-    const LisBNB = await ethers.getContractFactory("LisBNB");
+    const SLisBNB = await ethers.getContractFactory("SLisBNB");
     const snBNB = await upgrades.deployProxy(SnBNB, [this.deployer.address], {
       initializer: "initialize",
     });
     await snBNB.deployed();
     expect(await snBNB.name()).to.equals("Synclub Staked BNB");
     expect(await snBNB.symbol()).to.equals("SnBNB");
-    const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
-    expect(await lisBNB.name()).to.equals("Lista Staked BNB");
-    expect(await lisBNB.symbol()).to.equals("lisBNB");
+    const slisBNB = await upgrades.upgradeProxy(snBNB.address, SLisBNB);
+    expect(await slisBNB.name()).to.equals("Staked Lista BNB");
+    expect(await slisBNB.symbol()).to.equals("slisBNB");
   });
 
   it("the admin roles shouldn't be changed after upgraded and can be changed by admin after upgraded", async function () {
     const SnBNB = await ethers.getContractFactory("SnBnb");
-    const LisBNB = await ethers.getContractFactory("LisBNB");
+    const SLisBNB = await ethers.getContractFactory("SLisBNB");
     const snBNB = await upgrades.deployProxy(SnBNB, [this.addrs[1].address], {
       initializer: "initialize",
     });
@@ -62,48 +62,48 @@ describe("LisBNB::upgrade", function () {
       adminRole,
       this.addrs[2].address
     );
-    const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
-    expect(await lisBNB.hasRole(adminRole, this.deployer.address)).to.equals(
+    const slisBNB = await upgrades.upgradeProxy(snBNB.address, SLisBNB);
+    expect(await slisBNB.hasRole(adminRole, this.deployer.address)).to.equals(
       false
     );
-    expect(await lisBNB.hasRole(adminRole, this.addrs[1].address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.addrs[1].address)).to.equals(
       true
     );
-    expect(await lisBNB.hasRole(adminRole, this.addrs[2].address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.addrs[2].address)).to.equals(
       true
     );
-    expect(await lisBNB.hasRole(adminRole, this.deployer.address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.deployer.address)).to.equals(
       deployerPreviousAdminRole
     );
-    expect(await lisBNB.hasRole(adminRole, this.addrs[1].address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.addrs[1].address)).to.equals(
       addrs1PreviousAdminRole
     );
-    expect(await lisBNB.hasRole(adminRole, this.addrs[2].address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.addrs[2].address)).to.equals(
       addrs2PreviousAdminRole
     );
     // update deployer to admin
     await expect(
-      await lisBNB
+      await slisBNB
         .connect(this.addrs[1])
         .grantRole(adminRole, this.deployer.address)
     )
-      .to.emit(lisBNB, "RoleGranted")
+      .to.emit(slisBNB, "RoleGranted")
       .withArgs(adminRole, this.deployer.address, this.addrs[1].address);
-    expect(await lisBNB.hasRole(adminRole, this.deployer.address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.deployer.address)).to.equals(
       true
     );
     // remove addrs[1] from admin
-    await expect(await lisBNB.revokeRole(adminRole, this.addrs[1].address))
-      .to.emit(lisBNB, "RoleRevoked")
+    await expect(await slisBNB.revokeRole(adminRole, this.addrs[1].address))
+      .to.emit(slisBNB, "RoleRevoked")
       .withArgs(adminRole, this.addrs[1].address, this.deployer.address);
-    expect(await lisBNB.hasRole(adminRole, this.addrs[1].address)).to.equals(
+    expect(await slisBNB.hasRole(adminRole, this.addrs[1].address)).to.equals(
       false
     );
   });
 
   it("the stakeManager shouldn't be changed after upgraded and can mint/burn after upgraded", async function () {
     const SnBNB = await ethers.getContractFactory("SnBnb");
-    const LisBNB = await ethers.getContractFactory("LisBNB");
+    const SLisBNB = await ethers.getContractFactory("SLisBNB");
     const snBNB = await upgrades.deployProxy(SnBNB, [this.addrs[0].address], {
       initializer: "initialize",
     });
@@ -129,30 +129,30 @@ describe("LisBNB::upgrade", function () {
     expect(balance2).to.equals(100);
     expect(balance3).to.equals(9);
 
-    const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
+    const slisBNB = await upgrades.upgradeProxy(snBNB.address, SLisBNB);
 
     const [balanceAfter1, balanceAfter2, balanceAfter3] = await Promise.all([
-      lisBNB.balanceOf(recipient1),
-      lisBNB.balanceOf(recipient2),
-      lisBNB.balanceOf(recipient3),
+      slisBNB.balanceOf(recipient1),
+      slisBNB.balanceOf(recipient2),
+      slisBNB.balanceOf(recipient3),
     ]);
     expect(balance1).to.equals(balanceAfter1);
     expect(balance2).to.equals(balanceAfter2);
     expect(balance3).to.equals(balanceAfter3);
 
     await expect(
-      lisBNB.connect(this.deployer).mint(this.addrs[1].address, 1)
+      slisBNB.connect(this.deployer).mint(this.addrs[1].address, 1)
     ).to.be.revertedWith("Accessible only by StakeManager Contract");
 
-    await lisBNB.connect(manager).mint(recipient2, 100);
-    await lisBNB.connect(manager).mint(recipient3, 10);
-    await lisBNB.connect(manager).burn(recipient3, 1);
+    await slisBNB.connect(manager).mint(recipient2, 100);
+    await slisBNB.connect(manager).mint(recipient3, 10);
+    await slisBNB.connect(manager).burn(recipient3, 1);
 
     const [balanceChanged1, balanceChanged2, balanceChanged3] =
       await Promise.all([
-        lisBNB.balanceOf(recipient1),
-        lisBNB.balanceOf(recipient2),
-        lisBNB.balanceOf(recipient3),
+        slisBNB.balanceOf(recipient1),
+        slisBNB.balanceOf(recipient2),
+        slisBNB.balanceOf(recipient3),
       ]);
     expect(balanceChanged1.sub(balanceAfter1)).to.equals(0);
     expect(balanceChanged2.sub(balanceAfter2)).to.equals(100);
@@ -161,7 +161,7 @@ describe("LisBNB::upgrade", function () {
 
   it("the allowances shouldn't be changed after upgraded and can work well after upgraded", async function () {
     const SnBNB = await ethers.getContractFactory("SnBnb");
-    const LisBNB = await ethers.getContractFactory("LisBNB");
+    const SLisBNB = await ethers.getContractFactory("SLisBNB");
     const snBNB = await upgrades.deployProxy(SnBNB, [this.addrs[0].address], {
       initializer: "initialize",
     });
@@ -180,38 +180,38 @@ describe("LisBNB::upgrade", function () {
     // approve
     await snBNB.connect(this.addrs[2]).approve(recipient1, 50);
 
-    const lisBNB = await upgrades.upgradeProxy(snBNB.address, LisBNB);
+    const slisBNB = await upgrades.upgradeProxy(snBNB.address, SLisBNB);
 
     const [allowance1, allowance2, allowance3] = await Promise.all([
-      lisBNB.allowance(recipient2, recipient1),
-      lisBNB.allowance(recipient2, recipient2),
-      lisBNB.allowance(recipient2, recipient3),
+      slisBNB.allowance(recipient2, recipient1),
+      slisBNB.allowance(recipient2, recipient2),
+      slisBNB.allowance(recipient2, recipient3),
     ]);
     expect(allowance1).to.equals(50);
     expect(allowance2).to.equals(0);
     expect(allowance3).to.equals(0);
 
     await expect(
-      lisBNB.connect(this.addrs[2]).transferFrom(recipient2, recipient1, 50)
+      slisBNB.connect(this.addrs[2]).transferFrom(recipient2, recipient1, 50)
     ).to.be.revertedWith("ERC20: insufficient allowance");
 
     await expect(
-      lisBNB.connect(this.addrs[1]).transferFrom(recipient2, recipient1, 51)
+      slisBNB.connect(this.addrs[1]).transferFrom(recipient2, recipient1, 51)
     ).to.be.revertedWith("ERC20: insufficient allowance");
 
     await expect(
-      lisBNB.connect(this.addrs[1]).transferFrom(recipient2, recipient1, 50)
+      slisBNB.connect(this.addrs[1]).transferFrom(recipient2, recipient1, 50)
     )
-      .to.emit(lisBNB, "Transfer")
+      .to.emit(slisBNB, "Transfer")
       .withArgs(recipient2, recipient1, 50);
 
-    expect(await lisBNB.allowance(recipient2, recipient1)).to.equals(0);
+    expect(await slisBNB.allowance(recipient2, recipient1)).to.equals(0);
 
     const [balanceChanged1, balanceChanged2, balanceChanged3] =
       await Promise.all([
-        lisBNB.balanceOf(recipient1),
-        lisBNB.balanceOf(recipient2),
-        lisBNB.balanceOf(recipient3),
+        slisBNB.balanceOf(recipient1),
+        slisBNB.balanceOf(recipient2),
+        slisBNB.balanceOf(recipient3),
       ]);
     expect(balanceChanged1).to.equals(50);
     expect(balanceChanged2).to.equals(50);

@@ -82,11 +82,11 @@ task(
 });
 
 task(
-  "deployLisBNBImpl",
-  "Deploy LisBNB Implementation only, which is the new version of SnBnb"
+  "deploySLisBNBImpl",
+  "Deploy SLisBNB Implementation only, which is the new version of SnBnb"
 ).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
-  await validateUpgrade(hre, "SnBnb", "LisBNB");
-  await deployDirect(hre, "LisBNB");
+  await validateUpgrade(hre, "SnBnb", "SLisBNB");
+  await deployDirect(hre, "SLisBNB");
 });
 
 const config: HardhatUserConfig = {
