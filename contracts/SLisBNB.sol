@@ -6,12 +6,12 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 
 import "./interfaces/ISnBnb.sol";
 
-contract LisBNB is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
+contract SLisBNB is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
     address private stakeManager;
 
-    string private constant _name = "Lista Staked BNB";
+    string private constant _name = "Staked Lista BNB";
 
-    string private constant _symbol = "lisBNB";
+    string private constant _symbol = "slisBNB";
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
