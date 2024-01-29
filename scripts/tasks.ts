@@ -56,3 +56,20 @@ export async function upgradeProxy(
   console.log(`Proxy ${contractName} deployed to:`, contract.address);
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }
+
+export async function validateUpgrade(
+  hre: HardhatRuntimeEnvironment,
+  oldContractName: string,
+  newContractName: string
+) {
+  const OldContract = await hre.ethers.getContractFactory(oldContractName);
+  const NewContract = await hre.ethers.getContractFactory(oldContractName);
+
+  console.log(
+    `Checking whether ${newContractName} is compatible with ${oldContractName}`
+  );
+  await hre.upgrades.validateUpgrade(OldContract, NewContract);
+  console.log(
+    `${newContractName} is compatible with ${oldContractName}, can be upgraded`
+  );
+}

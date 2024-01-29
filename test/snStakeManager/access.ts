@@ -97,8 +97,6 @@ describe("SnStakeManager::access", function () {
     expect(
       await stakeManager.hasRole(ethers.utils.id("BOT"), bot.address)
     ).to.equals(false);
-
-    bot = null;
   });
 
   it("Can't set bot role if caller is not manager", async function () {
