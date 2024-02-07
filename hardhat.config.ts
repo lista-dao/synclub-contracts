@@ -15,6 +15,7 @@ import "@openzeppelin/hardhat-defender";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "hardhat-forta";
+import "hardhat-storage-layout";
 
 import {
   DEPLOYER_PRIVATE_KEY,
