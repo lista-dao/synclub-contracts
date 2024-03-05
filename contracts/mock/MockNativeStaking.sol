@@ -28,7 +28,9 @@ contract MockNativeStaking is IStaking {
 
   function getPendingUndelegateTime(address delegator, address validator) external view override returns(uint256) {}
 
-  function getRelayerFee() external view override returns(uint256) {}
+  function getRelayerFee() external view override returns(uint256) {
+      return 16000000000000000;
+  }
 
   function getMinDelegation() external view override returns(uint256) {}
 

@@ -15,6 +15,7 @@ import "@openzeppelin/hardhat-defender";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "hardhat-forta";
+import "hardhat-storage-layout";
 
 import {
   DEPLOYER_PRIVATE_KEY,
@@ -27,6 +28,13 @@ task("deploySnBnbProxy", "Deploy SnBnb Proxy only")
   .addPositionalParam("admin")
   .setAction(async ({ admin }, hre: HardhatRuntimeEnvironment) => {
     await deployProxy(hre, "SnBnb", admin);
+  });
+
+
+task("deploySlisBnbProxy", "Deploy slisBNB Proxy and Impl")
+  .addPositionalParam("admin")
+  .setAction(async ({ admin }, hre: HardhatRuntimeEnvironment) => {
+    await deployProxy(hre, "SLisBNB", admin);
   });
 
 task("upgradeSnBnbProxy", "Upgrade SnBnb Proxy")
