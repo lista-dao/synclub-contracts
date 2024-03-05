@@ -35,7 +35,7 @@ describe("SnBnb::setup", function () {
     );
     await snBnb.deployed();
 
-    expect(await snBnb.name()).to.equals("Synclub BNB");
+    expect(await snBnb.name()).to.equals("Synclub Staked BNB");
     expect(await snBnb.symbol()).to.equals("SnBNB");
     // check admin role
     expect(

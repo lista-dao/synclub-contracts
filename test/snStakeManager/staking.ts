@@ -8,7 +8,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { impersonateAccount } from "../helper";
 import { accountFixture, deployFixture } from "../fixture";
 
-describe("SnStakeManager::staking", function () {
+describe("SnStakeManager::staking", function() {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   const RELAYER_FEE = "2000000000000000";
   const NATIVE_STAKING = "0x0000000000000000000000000000000000002001";
@@ -21,7 +21,7 @@ describe("SnStakeManager::staking", function () {
   let bot: SignerWithAddress;
   let nativeStakingSigner: SignerWithAddress;
 
-  before(async function () {
+  before(async function() {
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
     this.deployer = deployer;
@@ -69,7 +69,7 @@ describe("SnStakeManager::staking", function () {
     ]);
   });
 
-  it("Can't operate when system paused", async function () {
+  it("Can't operate when system paused", async function() {
     await stakeManager.connect(admin).togglePause();
 
     await expect(
@@ -109,7 +109,7 @@ describe("SnStakeManager::staking", function () {
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).claimFailedDelegation()
+      stakeManager.connect(this.addrs[6]).claimFailedDelegation(false)
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
@@ -123,13 +123,13 @@ describe("SnStakeManager::staking", function () {
     await stakeManager.connect(admin).togglePause();
   });
 
-  it("Can't deposit with invalid amount", async function () {
+  it("Can't deposit with invalid amount", async function() {
     await expect(
       stakeManager.connect(this.addrs[6]).deposit({ value: 0 })
     ).to.be.revertedWith("Invalid Amount");
   });
 
-  it("Should be able to deposit with properly confirations", async function () {
+  it("Should be able to deposit with properly confirations", async function() {
     expect(await stakeManager.convertBnbToSnBnb(1)).to.equals(1);
     const [balance1Before] = await Promise.all([
       snBnb.balanceOf(this.addrs[6].address),
@@ -147,7 +147,7 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Can't delegate if caller is not bot", async function () {
+  it("Can't delegate if caller is not bot", async function() {
     await expect(
       stakeManager.connect(this.deployer).delegate()
     ).to.be.revertedWith(
@@ -157,7 +157,7 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Can't delegate without enough relayer fee", async function () {
+  it("Can't delegate without enough relayer fee", async function() {
     await expect(
       stakeManager.connect(bot).delegate({ value: 1 })
     ).to.be.revertedWith("Insufficient RelayFee");
@@ -167,7 +167,7 @@ describe("SnStakeManager::staking", function () {
     ).to.be.revertedWith("Insufficient Deposit Amount");
   });
 
-  it("Shoule be able to delegate by bot", async function () {
+  it("Shoule be able to delegate by bot", async function() {
     await stakeManager.connect(this.addrs[7]).deposit({
       value: ethers.utils.parseEther("1"),
     });
@@ -185,7 +185,7 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Can't compound rewards if caller is not bot", async function () {
+  it("Can't compound rewards if caller is not bot", async function() {
     await expect(
       stakeManager.connect(this.deployer).compoundRewards()
     ).to.be.revertedWith(
@@ -195,7 +195,7 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Should be able to compound by bot", async function () {
+  it("Should be able to compound by bot", async function() {
     const reward = ethers.utils.parseEther("0.1"); // 0.1
     const revenuePool = this.addrs[4].address;
     await mockNativeStaking.mock.claimReward.returns(reward);
@@ -242,13 +242,13 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Can't request withdraw with zero amount", async function () {
+  it("Can't request withdraw with zero amount", async function() {
     await expect(
       stakeManager.connect(this.addrs[6]).requestWithdraw(0)
     ).to.be.revertedWith("Invalid Amount");
   });
 
-  it("Should be able to request withdraw with property configrations", async function () {
+  it("Should be able to request withdraw with property configrations", async function() {
     // approve first
     await snBnb
       .connect(this.addrs[6])
@@ -313,7 +313,7 @@ describe("SnStakeManager::staking", function () {
     ).to.equals(ethers.utils.parseEther("1.216499999999999999"));
   });
 
-  it("Can't claim withdraw with error idx", async function () {
+  it("Can't claim withdraw with error idx", async function() {
     await expect(
       stakeManager.connect(this.addrs[6]).claimWithdraw(2)
     ).to.be.revertedWith("Invalid index");
@@ -337,7 +337,7 @@ describe("SnStakeManager::staking", function () {
     expect(status2[1]).to.equals(ethers.utils.parseEther("0.2165"));
   });
 
-  it("Can't undelegate if caller is not bot", async function () {
+  it("Can't undelegate if caller is not bot", async function() {
     await expect(
       stakeManager.connect(this.deployer).undelegate()
     ).to.be.revertedWith(
@@ -347,7 +347,7 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Should be able to undelegate by bot", async function () {
+  it("Should be able to undelegate by bot", async function() {
     expect(await stakeManager.totalSnBnbToBurn()).to.equals(
       ethers.utils.parseEther("1.123787528868360277")
     );
@@ -362,7 +362,7 @@ describe("SnStakeManager::staking", function () {
     await stakeManager.connect(bot).undelegate({ value: RELAYER_FEE });
 
     const res = await stakeManager.getBotUndelegateRequest(0);
-    expect(res[0]).to.equals(0);
+    expect(res[0]).not.to.equals(0);
     expect(res[1]).to.equals(0);
     expect(res[2]).to.equals(ethers.utils.parseEther("1.21649999"));
     expect(res[3]).to.equals(ethers.utils.parseEther("1.123787528868360277"));
@@ -378,7 +378,7 @@ describe("SnStakeManager::staking", function () {
     ).to.be.revertedWith("Insufficient Withdraw Amount");
   });
 
-  it("Can't claim undelegated if caller is not bot", async function () {
+  it("Can't claim undelegated if caller is not bot", async function() {
     await expect(
       stakeManager.connect(this.deployer).claimUndelegated()
     ).to.be.revertedWith(
@@ -388,14 +388,14 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Can't claim undelegated when nothing to claim", async function () {
+  it("Can't claim undelegated when nothing to claim", async function() {
     await mockNativeStaking.mock.claimUndelegated.returns(0);
     await expect(
       stakeManager.connect(bot).claimUndelegated()
     ).to.be.revertedWith("Nothing to undelegate");
   });
 
-  it("Should be able to claim undelegated by bot", async function () {
+  it("Should be able to claim undelegated by bot", async function() {
     const claimedAmount = ethers.utils
       .parseEther("1.216499999999999999")
       .toString();
@@ -408,9 +408,9 @@ describe("SnStakeManager::staking", function () {
     });
   });
 
-  it("Can't claim faild delegation if caller is not bot", async function () {
+  it("Can't claim faild delegation if caller is not bot", async function() {
     await expect(
-      stakeManager.connect(this.deployer).claimFailedDelegation()
+      stakeManager.connect(this.deployer).claimFailedDelegation(false)
     ).to.be.revertedWith(
       `AccessControl: account ${this.deployer.address.toLowerCase()} is missing role ${ethers.utils.id(
         "BOT"
@@ -418,21 +418,22 @@ describe("SnStakeManager::staking", function () {
     );
   });
 
-  it("Should be able to claim failed delegation by bot", async function () {
+  it("Should be able to claim failed delegation by bot", async function() {
     const failedDelegationAmount = ethers.utils
-      .parseEther("100.216499999999999999")
+      .parseEther("0.2164")
       .toString();
+
     await mockNativeStaking.mock.claimUndelegated.returns(
       failedDelegationAmount
     );
-    await stakeManager.connect(bot).claimFailedDelegation();
+    await stakeManager.connect(bot).claimFailedDelegation(false);
 
     expect(await stakeManager.amountToDelegate()).to.equals(
-      ethers.utils.parseEther("100.216499999999999999").toString()
+      ethers.utils.parseEther("0.2164").toString()
     );
   });
 
-  it("Should be able to claim withdraw by user", async function () {
+  it("Should be able to claim withdraw by user", async function() {
     const status1 = await stakeManager.getUserRequestStatus(
       this.addrs[6].address,
       0
@@ -461,7 +462,7 @@ describe("SnStakeManager::staking", function () {
       );
   });
 
-  it("Should transfer BNB to redirect address", async function () {
+  it("Should transfer BNB to redirect address", async function() {
     const tx = await stakeManager
       .connect(admin)
       .setRedirectAddress(this.addrs[10].address);
@@ -483,7 +484,7 @@ describe("SnStakeManager::staking", function () {
     expect(balance1After.sub(balance1Before)).to.equals(100);
   });
 
-  it("Can't deposite reserve if caller is not redirect address", async function () {
+  it("Can't deposite reserve if caller is not redirect address", async function() {
     await expect(
       stakeManager
         .connect(this.deployer)
@@ -497,18 +498,18 @@ describe("SnStakeManager::staking", function () {
     ).to.be.revertedWith("Invalid Amount");
   });
 
-  it("Should be able to deposit reserve", async function () {
+  it("Should be able to deposit reserve", async function() {
     await stakeManager
       .connect(this.addrs[10])
       .depositReserve({ value: ethers.utils.parseEther("1") });
 
     expect(
       // await stakeManager.connect(this.addrs[10]).availableReserveAmount()
-      await stakeManager.availableReserveAmount()
+      await stakeManager.totalReserveAmount()
     ).to.equals(ethers.utils.parseEther("1").toString());
   });
 
-  it("Can't withdraw reserve if caller is not redirect addres", async function () {
+  it("Can't withdraw reserve if caller is not redirect addres", async function() {
     await expect(
       stakeManager
         .connect(this.deployer)
@@ -522,18 +523,18 @@ describe("SnStakeManager::staking", function () {
     ).to.be.revertedWith("Insufficient Balance");
   });
 
-  it("Should be able to withdraw reserve", async function () {
+  it("Should be able to withdraw reserve", async function() {
     await stakeManager
       .connect(this.addrs[10])
       .withdrawReserve(ethers.utils.parseEther("0.5"));
 
     expect(
       // await stakeManager.connect(this.addrs[10]).availableReserveAmount()
-      await stakeManager.availableReserveAmount()
+      await stakeManager.totalReserveAmount()
     ).to.equals(ethers.utils.parseEther("0.5"));
   });
 
-  it("Can't redelegate if caller is not manager", async function () {
+  it("Can't redelegate if caller is not manager", async function() {
     await expect(
       stakeManager
         .connect(this.deployer)
@@ -544,27 +545,33 @@ describe("SnStakeManager::staking", function () {
       stakeManager
         .connect(manager)
         .redelegate(ADDRESS_ZERO, ADDRESS_ZERO, 0, { value: 0 })
+    ).to.be.revertedWith("Invalid Redelegation");
+
+    await expect(
+      stakeManager
+        .connect(manager)
+        .redelegate(ADDRESS_ZERO, this.addrs[8].address, 0, { value: 0 })
     ).to.be.revertedWith("Insufficient RelayFee");
 
     await expect(
       stakeManager
         .connect(manager)
-        .redelegate(ADDRESS_ZERO, ADDRESS_ZERO, 0, { value: RELAYER_FEE })
+        .redelegate(ADDRESS_ZERO, this.addrs[8].address, 0, { value: RELAYER_FEE })
     ).to.be.revertedWith("Insufficient Deposit Amount");
   });
 
-  it("Should be able to redelegate with properly configurations", async function () {
+  it("Should be able to redelegate with properly configurations", async function() {
     const tx = await stakeManager
       .connect(manager)
-      .redelegate(ADDRESS_ZERO, ADDRESS_ZERO, ethers.utils.parseEther("1"), {
+      .redelegate(ADDRESS_ZERO, this.addrs[9].address, ethers.utils.parseEther("1"), {
         value: RELAYER_FEE,
       });
     expect(tx)
       .to.emit(stakeManager, "ReDelegate")
-      .withArgs(ADDRESS_ZERO, ADDRESS_ZERO, ethers.utils.parseEther("1"));
+      .withArgs(ADDRESS_ZERO, this.addrs[9].address, ethers.utils.parseEther("1"));
   });
 
-  it("Should be able to get contracts", async function () {
+  it("Should be able to get contracts", async function() {
     await stakeManager.connect(manager).setBCValidator(this.addrs[8].address);
     const res = await stakeManager.getContracts();
     expect(res[0]).to.equals(manager.address);
@@ -572,13 +579,13 @@ describe("SnStakeManager::staking", function () {
     expect(res[2]).to.equals(this.addrs[8].address);
   });
 
-  it("Should be able to get sbnb withdraw limit", async function () {
+  it("Should be able to get slisbnb withdraw limit", async function() {
     expect(await stakeManager.getSnBnbWithdrawLimit()).to.equals(
-      ethers.utils.parseEther("0.010686186535830937")
+      ethers.utils.parseEther("0.800092380599608493")
     );
   });
 
-  it("Should be able to get token hub relay fee", async function () {
+  it("Should be able to get token hub relay fee", async function() {
     await mockNativeStaking.mock.getRelayerFee.returns(RELAYER_FEE);
     expect(await stakeManager.getTokenHubRelayFee()).to.equals(RELAYER_FEE);
   });

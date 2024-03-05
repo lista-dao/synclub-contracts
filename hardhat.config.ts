@@ -30,6 +30,13 @@ task("deploySnBnbProxy", "Deploy SnBnb Proxy only")
     await deployProxy(hre, "SnBnb", admin);
   });
 
+
+task("deploySlisBnbProxy", "Deploy slisBNB Proxy and Impl")
+  .addPositionalParam("admin")
+  .setAction(async ({ admin }, hre: HardhatRuntimeEnvironment) => {
+    await deployProxy(hre, "SLisBNB", admin);
+  });
+
 task("upgradeSnBnbProxy", "Upgrade SnBnb Proxy")
   .addPositionalParam("proxyAddress")
   .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
