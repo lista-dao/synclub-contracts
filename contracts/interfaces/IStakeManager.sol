@@ -62,6 +62,8 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
+    function claimAllWithdrawals() external;
+
     function undelegate()
         external
         payable
@@ -156,6 +158,7 @@ interface IStakeManager {
         uint256 _idx,
         uint256 _amount
     );
+    event ClaimAllWithdrawals(address indexed _account, uint256 _amount);
     event Undelegate(uint256 _uuid, uint256 _amount);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);

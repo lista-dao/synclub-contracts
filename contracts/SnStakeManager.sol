@@ -338,6 +338,45 @@ contract SnStakeManager is
         emit ClaimWithdrawal(user, _idx, amount);
     }
 
+    function claimAllWithdrawals() external override whenNotPaused {
+        address user = msg.sender;
+        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[user];
+
+	uint256 amount = 0;
+
+	require(userRequests.length > 0, "no request made");
+	uint256 count =userRequests.length;
+	while (count != 0) { // iterate from end to head
+	    uint idx_ = count - 1;
+	    WithdrawalRequest storage withdrawRequest = userRequests[idx_];
+	    uint256 uuid = withdrawRequest.uuid;
+	    uint256 amountInSnBnb = withdrawRequest.amountInSnBnb;
+
+	    BotUndelegateRequest
+		storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+	    if (botUndelegateRequest.endTime == 0) {
+		continue;
+	    } else {
+		// swap and pop
+		userRequests[idx_] = userRequests[userRequests.length - 1];
+		userRequests.pop();
+
+		uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+		uint256 totalSnBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
+		uint256 _amount = (totalBnbToWithdraw_ * amountInSnBnb) /
+		    totalSnBnbToBurn_;
+		amount += _amount;
+	    }
+
+	    count -= 1;
+	}
+
+	require(amount > 0, "nothing to claim");
+        AddressUpgradeable.sendValue(payable(user), amount);
+
+        emit ClaimAllWithdrawals(user, amount);
+    }
+
     /**
      * @dev Bot uses this function to get amount of BNB to withdraw
      * @return _uuid - unique id against which this Undelegation event was logged
@@ -780,6 +819,24 @@ contract SnStakeManager is
         uint256 amountInBnb = (_amountInSnBnb * totalPooledBnb) / totalShares;
 
         return amountInBnb;
+    }
+
+    /**
+     * @dev Add the existing BC validator to whitelist
+     */
+    function whitelistBcValidator()
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(!validators[bcValidator].active &&
+		validators[bcValidator].amount == 0,
+		"BC Validator whitelisted");
+        require(bcValidator != address(0), "zero address provided");
+
+        validators[bcValidator].active = true;
+        validators[bcValidator].amount = totalDelegated;
+
+        emit WhitelistValidator(bcValidator);
     }
 
     /**
