@@ -97,6 +97,13 @@ task(
   await deployDirect(hre, "SLisBNB");
 });
 
+task(
+  "deployMockStaking",
+  "Deploy Mock Native Staking contract"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await deployDirect(hre, "MockNativeStaking");
+});
+
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   solidity: {
