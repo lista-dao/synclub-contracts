@@ -8,7 +8,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { impersonateAccount } from "../helper";
 import { accountFixture, deployFixture } from "../fixture";
 
-describe("SnStakeManager::staking::basic", function() {
+describe("ListaStakeManager::staking::basic", function() {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   const RELAYER_FEE = "2000000000000000";
   const NATIVE_STAKING = "0x0000000000000000000000000000000000002001";
@@ -36,7 +36,7 @@ describe("SnStakeManager::staking::basic", function() {
       ethers.utils.parseEther("10").toHexString()
     );
     slisBnb = await upgrades.deployProxy(
-      await ethers.getContractFactory("SnBnb"),
+      await ethers.getContractFactory("SLisBNB"),
       [this.addrs[1].address]
     );
     await slisBnb.deployed();
@@ -48,7 +48,7 @@ describe("SnStakeManager::staking::basic", function() {
 
 
     stakeManager = await upgrades.deployProxy(
-      await ethers.getContractFactory("SnStakeManager"),
+      await ethers.getContractFactory("ListaStakeManager"),
       [
         slisBnb.address,
         admin.address,
