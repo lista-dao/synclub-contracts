@@ -16,6 +16,16 @@ interface IStakeManager {
         uint256 startTime;
     }
 
+    struct ValidatorStatus {
+        uint256 amount;
+        bool active;
+    }
+
+    struct UserRequest {
+        address user;
+        uint256 idx;
+    }
+
     function initialize(
         address _snBnb,
         address _admin,
@@ -29,6 +39,11 @@ interface IStakeManager {
     function deposit() external payable;
 
     function delegate()
+        external
+        payable
+        returns (uint256 _amount);
+
+    function delegateTo(address validator, uint256 amount)
         external
         payable
         returns (uint256 _amount);
@@ -47,7 +62,14 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
+    function claimAllWithdrawals() external;
+
     function undelegate()
+        external
+        payable
+        returns (uint256 _uuid, uint256 _amount);
+
+    function undelegateFrom(address _validator, uint256 _amt)
         external
         payable
         returns (uint256 _uuid, uint256 _amount);
@@ -78,9 +100,15 @@ interface IStakeManager {
 
     function setRevenuePool(address _address) external;
 
+    function getTotalPooledBnb() external view returns (uint256);
+
     function setRedirectAddress(address _address) external;
 
-    function getTotalPooledBnb() external view returns (uint256);
+    function whitelistValidator(address _address) external;
+
+    function disableValidator(address _address) external;
+
+    function removeValidator(address _address) external;
 
     function getContracts()
         external
@@ -106,22 +134,23 @@ interface IStakeManager {
         view
         returns (bool _isClaimable, uint256 _amount);
 
-    function getSnBnbWithdrawLimit()
+    function getSlisBnbWithdrawLimit()
         external
         view
-        returns (uint256 _bnbXWithdrawLimit);
+        returns (uint256 _slisBnbWithdrawLimit);
 
-    function getTokenHubRelayFee() external view returns (uint256);
+    function getRelayFee() external view returns (uint256);
 
-    function convertBnbToSnBnb(uint256 _amount) external view returns (uint256);
+    function convertBnbToSlisBnb(uint256 _amount) external view returns (uint256);
 
-    function convertSnBnbToBnb(uint256 _amountInBnbX)
+    function convertSlisBnbToBnb(uint256 _amountInBnbX)
         external
         view
         returns (uint256);
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
+    event DelegateTo(address _validator, uint256 _amount);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
@@ -129,6 +158,7 @@ interface IStakeManager {
         uint256 _idx,
         uint256 _amount
     );
+    event ClaimAllWithdrawals(address indexed _account, uint256 _amount);
     event Undelegate(uint256 _uuid, uint256 _amount);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
@@ -143,4 +173,7 @@ interface IStakeManager {
     event SetReserveAmount(uint256 _amount);
     event ClaimUndelegated(uint256 _uuid, uint256 _amount);
     event ClaimFailedDelegation(uint256 _amount, bool _withReserve);
+    event WhitelistValidator(address indexed _address);
+    event DisableValidator(address indexed _address);
+    event RemoveValidator(address indexed _address);
 }

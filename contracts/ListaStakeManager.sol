@@ -9,14 +9,14 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import {IStakeManager} from "./interfaces/IStakeManager.sol";
-import {ISnBnb} from "./interfaces/ISnBnb.sol";
+import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStaking} from "./interfaces/INativeStaking.sol";
 
 /**
  * @title Stake Manager Contract
  * @dev Handles Staking of BNB on BSC
  */
-contract SnStakeManager is
+contract ListaStakeManager is
     IStakeManager,
     Initializable,
     PausableUpgradeable,
@@ -123,7 +123,7 @@ contract SnStakeManager is
         require(slisBnbToMint > 0, "Invalid SlisBnb Amount");
         amountToDelegate += amount;
 
-        ISnBnb(snBnb).mint(msg.sender, slisBnbToMint);
+        ISLisBNB(snBnb).mint(msg.sender, slisBnbToMint);
 
         emit Deposit(msg.sender, msg.value);
     }
@@ -416,7 +416,7 @@ contract SnStakeManager is
         totalDelegated -= _amount;
         totalSnBnbToBurn = 0;
 
-        ISnBnb(snBnb).burn(address(this), totalSlisBnbToBurn_);
+        ISLisBNB(snBnb).burn(address(this), totalSlisBnbToBurn_);
 
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(bcValidator, _amount + reserveAmount);
@@ -460,7 +460,7 @@ contract SnStakeManager is
         });
 	totalDelegated -= _amount;
         totalSnBnbToBurn -= slisBnbToBurn;
-        ISnBnb(snBnb).burn(address(this), slisBnbToBurn);
+        ISLisBNB(snBnb).burn(address(this), slisBnbToBurn);
 
 	require(validators[_validator].amount >= _amount, "Insufficient amount");
 	validators[_validator].amount -= _amount;
@@ -791,7 +791,7 @@ contract SnStakeManager is
         override
         returns (uint256)
     {
-        uint256 totalShares = ISnBnb(snBnb).totalSupply();
+        uint256 totalShares = ISLisBNB(snBnb).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
@@ -811,7 +811,7 @@ contract SnStakeManager is
         override
         returns (uint256)
     {
-        uint256 totalShares = ISnBnb(snBnb).totalSupply();
+        uint256 totalShares = ISLisBNB(snBnb).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();

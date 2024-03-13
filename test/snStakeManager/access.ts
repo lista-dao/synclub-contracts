@@ -7,7 +7,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import { accountFixture, deployFixture } from "../fixture";
 
-describe("SnStakeManager::access", function() {
+describe("ListaStakeManager::access", function() {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
 
   let mockSnBNB: MockContract;
@@ -21,13 +21,13 @@ describe("SnStakeManager::access", function() {
     this.addrs = addrs;
     this.deployer = deployer;
     const { deployMockContract } = await loadFixture(deployFixture);
-    mockSnBNB = await deployMockContract("SnBnb");
+    mockSnBNB = await deployMockContract("SLisBNB");
     admin = this.addrs[1];
     manager = this.addrs[2];
     bot = this.addrs[3];
 
     stakeManager = await upgrades.deployProxy(
-      await ethers.getContractFactory("SnStakeManager"),
+      await ethers.getContractFactory("ListaStakeManager"),
       [
         mockSnBNB.address,
         admin.address,

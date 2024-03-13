@@ -5,7 +5,7 @@ import type { MockContract } from "@ethereum-waffle/mock-contract";
 
 import { accountFixture, deployFixture } from "../fixture";
 
-describe("SnStakeManager::setup", function() {
+describe("ListaStakeManager::setup", function() {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   const botRole = ethers.utils.id("BOT");
   const adminRole = ethers.constants.HashZero;
@@ -17,7 +17,7 @@ describe("SnStakeManager::setup", function() {
     this.addrs = addrs;
     this.deployer = deployer;
     const { deployMockContract } = await loadFixture(deployFixture);
-    mockSnBNB = await deployMockContract("SnBnb");
+    mockSnBNB = await deployMockContract("SLisBNB");
   });
 
   it("Can't deploy with zero contract", async function() {
@@ -81,14 +81,14 @@ describe("SnStakeManager::setup", function() {
     for (let i = 0; i < allArgs.length; i++) {
       await expect(
         upgrades.deployProxy(
-          await ethers.getContractFactory("SnStakeManager"),
+          await ethers.getContractFactory("ListaStakeManager"),
           allArgs[i]
         )
       ).to.be.revertedWith("zero address provided");
     }
 
     await expect(
-      upgrades.deployProxy(await ethers.getContractFactory("SnStakeManager"), [
+      upgrades.deployProxy(await ethers.getContractFactory("ListaStakeManager"), [
         this.addrs[0].address,
         this.addrs[1].address,
         this.addrs[2].address,
@@ -102,7 +102,7 @@ describe("SnStakeManager::setup", function() {
 
   it("Should be able to setup contract with properly configurations", async function() {
     const stakeManager = await upgrades.deployProxy(
-      await ethers.getContractFactory("SnStakeManager"),
+      await ethers.getContractFactory("ListaStakeManager"),
       [
         mockSnBNB.address,
         this.addrs[1].address, // admin
