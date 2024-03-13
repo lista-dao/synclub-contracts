@@ -134,16 +134,16 @@ interface IStakeManager {
         view
         returns (bool _isClaimable, uint256 _amount);
 
-    function getSnBnbWithdrawLimit()
+    function getSlisBnbWithdrawLimit()
         external
         view
-        returns (uint256 _bnbXWithdrawLimit);
+        returns (uint256 _slisBnbWithdrawLimit);
 
-    function getTokenHubRelayFee() external view returns (uint256);
+    function getRelayFee() external view returns (uint256);
 
-    function convertBnbToSnBnb(uint256 _amount) external view returns (uint256);
+    function convertBnbToSlisBnb(uint256 _amount) external view returns (uint256);
 
-    function convertSnBnbToBnb(uint256 _amountInBnbX)
+    function convertSlisBnbToBnb(uint256 _amountInBnbX)
         external
         view
         returns (uint256);

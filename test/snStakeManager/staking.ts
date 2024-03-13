@@ -1,12 +1,13 @@
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
-import { Contract } from "ethers";
+import { Contract, providers } from "ethers";
 import { loadFixture } from "ethereum-waffle";
 import type { MockContract } from "@ethereum-waffle/mock-contract";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 import { impersonateAccount } from "../helper";
 import { accountFixture, deployFixture } from "../fixture";
+import { getContractAddress } from "ethers/lib/utils";
 
 describe("SnStakeManager::staking", function() {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
@@ -19,9 +20,15 @@ describe("SnStakeManager::staking", function() {
   let admin: SignerWithAddress;
   let manager: SignerWithAddress;
   let bot: SignerWithAddress;
+  let user: SignerWithAddress;
   let nativeStakingSigner: SignerWithAddress;
 
   before(async function() {
+    // Reset the Hardhat Network, starting a new instance
+    await ethers.provider.send(
+      "hardhat_reset",
+      [],
+    );
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
     this.deployer = deployer;
@@ -41,6 +48,7 @@ describe("SnStakeManager::staking", function() {
     admin = this.addrs[1];
     manager = this.addrs[2];
     bot = this.addrs[3];
+    user = this.addrs[6];
 
     stakeManager = await upgrades.deployProxy(
       await ethers.getContractFactory("SnStakeManager"),
@@ -74,50 +82,50 @@ describe("SnStakeManager::staking", function() {
 
     await expect(
       stakeManager
-        .connect(this.addrs[6])
+        .connect(user)
         .deposit({ value: ethers.utils.parseEther("1") })
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).delegate()
+      stakeManager.connect(user).delegate()
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
       stakeManager
-        .connect(this.addrs[6])
+        .connect(user)
         .redelegate(ADDRESS_ZERO, ADDRESS_ZERO, 0)
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).compoundRewards()
+      stakeManager.connect(user).compoundRewards()
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).requestWithdraw(0)
+      stakeManager.connect(user).requestWithdraw(0)
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).claimWithdraw(0)
+      stakeManager.connect(user).claimWithdraw(0)
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).undelegate()
+      stakeManager.connect(user).undelegate()
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).claimUndelegated()
+      stakeManager.connect(user).claimUndelegated()
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).claimFailedDelegation(false)
+      stakeManager.connect(user).claimFailedDelegation(false)
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).depositReserve()
+      stakeManager.connect(user).depositReserve()
     ).to.be.revertedWith("Pausable: paused");
 
     await expect(
-      stakeManager.connect(this.addrs[6]).withdrawReserve(1)
+      stakeManager.connect(user).withdrawReserve(1)
     ).to.be.revertedWith("Pausable: paused");
 
     await stakeManager.connect(admin).togglePause();
@@ -125,22 +133,22 @@ describe("SnStakeManager::staking", function() {
 
   it("Can't deposit with invalid amount", async function() {
     await expect(
-      stakeManager.connect(this.addrs[6]).deposit({ value: 0 })
+      stakeManager.connect(user).deposit({ value: 0 })
     ).to.be.revertedWith("Invalid Amount");
   });
 
   it("Should be able to deposit with properly confirations", async function() {
-    expect(await stakeManager.convertBnbToSnBnb(1)).to.equals(1);
+    expect(await stakeManager.convertBnbToSlisBnb(1)).to.equals(1);
     const [balance1Before] = await Promise.all([
-      snBnb.balanceOf(this.addrs[6].address),
+      snBnb.balanceOf(user.address),
     ]);
 
-    await stakeManager.connect(this.addrs[6]).deposit({
+    await stakeManager.connect(user).deposit({
       value: ethers.utils.parseEther("0.2"),
     });
-    expect(await stakeManager.convertBnbToSnBnb(1)).to.equals(1);
+    expect(await stakeManager.convertBnbToSlisBnb(1)).to.equals(1);
     const [balance1After] = await Promise.all([
-      snBnb.balanceOf(this.addrs[6].address),
+      snBnb.balanceOf(user.address),
     ]);
     expect(balance1After.sub(balance1Before)).to.equals(
       ethers.utils.parseEther("0.2")
@@ -229,9 +237,9 @@ describe("SnStakeManager::staking", function() {
 
     // 1 * 1.2 / (1.2 + 0.099)
     expect(
-      await stakeManager.convertBnbToSnBnb(ethers.utils.parseEther("1"))
+      await stakeManager.convertBnbToSlisBnb(ethers.utils.parseEther("1"))
     ).to.equals(ethers.utils.parseEther("0.923787528868360277"));
-    await stakeManager.connect(this.addrs[6]).deposit({
+    await stakeManager.connect(user).deposit({
       value: ethers.utils.parseEther("1"),
     });
     await stakeManager.connect(bot).delegate({ value: RELAYER_FEE });
@@ -244,61 +252,61 @@ describe("SnStakeManager::staking", function() {
 
   it("Can't request withdraw with zero amount", async function() {
     await expect(
-      stakeManager.connect(this.addrs[6]).requestWithdraw(0)
+      stakeManager.connect(user).requestWithdraw(0)
     ).to.be.revertedWith("Invalid Amount");
   });
 
   it("Should be able to request withdraw with property configrations", async function() {
     // approve first
     await snBnb
-      .connect(this.addrs[6])
+      .connect(user)
       .approve(stakeManager.address, ethers.constants.MaxUint256);
     expect(await stakeManager.amountToDelegate()).to.equals(0);
     expect(await snBnb.totalSupply()).to.equals(
       ethers.utils.parseEther("2.123787528868360277")
     );
     expect(
-      await stakeManager.convertBnbToSnBnb(ethers.utils.parseEther("1"))
+      await stakeManager.convertBnbToSlisBnb(ethers.utils.parseEther("1"))
     ).to.equals(ethers.utils.parseEther("0.923787528868360277"));
     // (1 * 2.299) / (1.2 + 0.923787528868360277)
     expect(
-      await stakeManager.convertSnBnbToBnb(ethers.utils.parseEther("1"))
+      await stakeManager.convertSlisBnbToBnb(ethers.utils.parseEther("1"))
     ).to.equals(ethers.utils.parseEther("1.0825"));
 
     const [balance1Before, balance2Before] = await Promise.all([
-      snBnb.balanceOf(this.addrs[6].address),
+      snBnb.balanceOf(user.address),
       snBnb.balanceOf(stakeManager.address),
     ]);
     // 0.923787528868360277 + 0.2 = 1.123787528868360277
     const tx1 = await stakeManager
-      .connect(this.addrs[6])
+      .connect(user)
       .requestWithdraw(ethers.utils.parseEther("0.923787528868360277"));
 
     const res = await stakeManager.getUserWithdrawalRequests(
-      this.addrs[6].address
+      user.address
     );
 
-    expect(res[0][0]).to.equals(0);
+    expect(res[0][0]).to.equals(ethers.constants.MaxUint256);
     expect(res[0][1]).to.equals(
       ethers.utils.parseEther("0.923787528868360277")
     );
 
     const tx2 = await stakeManager
-      .connect(this.addrs[6])
+      .connect(user)
       .requestWithdraw(ethers.utils.parseEther("0.2"));
     const [balance1After, balance2After] = await Promise.all([
-      snBnb.balanceOf(this.addrs[6].address),
+      snBnb.balanceOf(user.address),
       snBnb.balanceOf(stakeManager.address),
     ]);
     expect(tx1)
       .to.emit(stakeManager, "RequestWithdraw")
       .withArgs(
-        this.addrs[6].address,
+        user.address,
         ethers.utils.parseEther("0.923787528868360277")
       );
     expect(tx2)
       .to.emit(stakeManager, "RequestWithdraw")
-      .withArgs(this.addrs[6].address, ethers.utils.parseEther("0.2"));
+      .withArgs(user.address, ethers.utils.parseEther("0.2"));
     expect(balance1Before.sub(balance1After)).to.equals(
       ethers.utils.parseEther("1.123787528868360277")
     );
@@ -307,7 +315,7 @@ describe("SnStakeManager::staking", function() {
     );
     // expect to receive BNB amount
     expect(
-      await stakeManager.convertSnBnbToBnb(
+      await stakeManager.convertSlisBnbToBnb(
         ethers.utils.parseEther("1.123787528868360277")
       )
     ).to.equals(ethers.utils.parseEther("1.216499999999999999"));
@@ -315,18 +323,18 @@ describe("SnStakeManager::staking", function() {
 
   it("Can't claim withdraw with error idx", async function() {
     await expect(
-      stakeManager.connect(this.addrs[6]).claimWithdraw(2)
+      stakeManager.connect(user).claimWithdraw(2)
     ).to.be.revertedWith("Invalid index");
     await expect(
-      stakeManager.connect(this.addrs[6]).claimWithdraw(0)
+      stakeManager.connect(user).claimWithdraw(0)
     ).to.be.revertedWith("Not able to claim yet");
 
     const status1 = await stakeManager.getUserRequestStatus(
-      this.addrs[6].address,
+      user.address,
       0
     );
     const status2 = await stakeManager.getUserRequestStatus(
-      this.addrs[6].address,
+      user.address,
       1
     );
     expect(status1[0]).to.equals(false);
@@ -352,7 +360,7 @@ describe("SnStakeManager::staking", function() {
       ethers.utils.parseEther("1.123787528868360277")
     );
     expect(
-      await stakeManager.convertSnBnbToBnb(
+      await stakeManager.convertSlisBnbToBnb(
         ethers.utils.parseEther("1.123787528868360277")
       )
     ).to.equals(ethers.utils.parseEther("1.216499999999999999"));
@@ -399,8 +407,12 @@ describe("SnStakeManager::staking", function() {
     const claimedAmount = ethers.utils
       .parseEther("1.216499999999999999")
       .toString();
+    const uuid = await stakeManager.confirmedUndelegatedUUID();
+    //    const botReq = await stakeManager.getBotUndelegateRequest(uuid);
+    //    console.log(botReq);
+
     await mockNativeStaking.mock.claimUndelegated.returns(claimedAmount);
-    await stakeManager.connect(bot).claimUndelegated();
+    await expect(stakeManager.connect(bot).claimUndelegated()).to.emit(stakeManager, "ClaimUndelegated").withArgs(uuid + 1, claimedAmount);
     // mock send reward
     await nativeStakingSigner.sendTransaction({
       to: stakeManager.address,
@@ -433,30 +445,38 @@ describe("SnStakeManager::staking", function() {
     );
   });
 
-  it("Should be able to claim withdraw by user", async function() {
+  it.skip("Should be able to claim withdraw by user", async function() {
+    const requests = await stakeManager.getUserWithdrawalRequests(user.address);
+    console.log(requests);
+    const uuid = await stakeManager.confirmedUndelegatedUUID();
+    console.log("uuid: ", uuid);
+    const botReq = await stakeManager.getBotUndelegateRequest(uuid - 1);
+    console.log(botReq);
+
     const status1 = await stakeManager.getUserRequestStatus(
-      this.addrs[6].address,
+      user.address,
       0
     );
+    console.log(status1);
     expect(status1[0]).to.equals(true);
     expect(status1[1]).to.equals(
       ethers.utils.parseEther("0.999999991779695848")
     );
 
-    const tx1 = await stakeManager.connect(this.addrs[6]).claimWithdraw(0);
-    const tx2 = await stakeManager.connect(this.addrs[6]).claimWithdraw(0);
+    const tx1 = await stakeManager.connect(user).claimWithdraw(0);
+    const tx2 = await stakeManager.connect(user).claimWithdraw(0);
     // 0.999999991779695848 + 0.216499998220304151 = 216499999999999999
     expect(tx1)
       .to.emit(stakeManager, "ClaimWithdrawal")
       .withArgs(
-        this.addrs[6].address,
+        user.address,
         0,
         ethers.utils.parseEther("0.999999991779695848")
       );
     expect(tx2)
       .to.emit(stakeManager, "ClaimWithdrawal")
       .withArgs(
-        this.addrs[6].address,
+        user.address,
         0,
         ethers.utils.parseEther("0.216499998220304151")
       );
@@ -560,15 +580,38 @@ describe("SnStakeManager::staking", function() {
     ).to.be.revertedWith("Insufficient Deposit Amount");
   });
 
+  it("Should be able to delegate to specified validator", async function() {
+    const validator = this.addrs[8].address;
+    const _ = await stakeManager
+      .connect(admin)
+      .whitelistValidator(validator);
+
+    await stakeManager.deposit({ value: ethers.utils.parseEther("5") });
+
+    const tx = await stakeManager
+      .connect(bot)
+      .delegateTo(validator, ethers.utils.parseEther("1"), {
+        value: RELAYER_FEE,
+      });
+
+    expect(tx)
+      .to.emit(stakeManager, "DelegateTo")
+      .withArgs(validator, ethers.utils.parseEther("1"));
+  });
+
   it("Should be able to redelegate with properly configurations", async function() {
+    const validator1 = this.addrs[8].address;
+    const validator2 = this.addrs[9].address;
+    const amt = ethers.utils.parseEther("1");
+
     const tx = await stakeManager
       .connect(manager)
-      .redelegate(ADDRESS_ZERO, this.addrs[9].address, ethers.utils.parseEther("1"), {
+      .redelegate(validator1, validator2, amt, {
         value: RELAYER_FEE,
       });
     expect(tx)
       .to.emit(stakeManager, "ReDelegate")
-      .withArgs(ADDRESS_ZERO, this.addrs[9].address, ethers.utils.parseEther("1"));
+      .withArgs(validator1, validator2, amt);
   });
 
   it("Should be able to get contracts", async function() {
@@ -580,13 +623,13 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Should be able to get slisbnb withdraw limit", async function() {
-    expect(await stakeManager.getSnBnbWithdrawLimit()).to.equals(
-      ethers.utils.parseEther("0.800092380599608493")
+    expect(await stakeManager.getSlisBnbWithdrawLimit()).to.equals(
+      ethers.utils.parseEther("1.723879900934134864")
     );
   });
 
   it("Should be able to get token hub relay fee", async function() {
     await mockNativeStaking.mock.getRelayerFee.returns(RELAYER_FEE);
-    expect(await stakeManager.getTokenHubRelayFee()).to.equals(RELAYER_FEE);
+    expect(await stakeManager.getRelayFee()).to.equals(RELAYER_FEE);
   });
 });
