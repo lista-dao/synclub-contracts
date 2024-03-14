@@ -24,10 +24,10 @@ contract ListaStakeManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint256 public totalSnBnbToBurn;
+    uint256 public totalSnBnbToBurn; // received User withdraw requests - ideally undelegate all
 
     uint256 public totalDelegated; // total BNB delegated
-    uint256 public amountToDelegate; // total BNB to delegate for next batch
+    uint256 public amountToDelegate; // total BNB to delegate for next batch; (User deposits + rewards  - delegated) - ideally delegate all
 
     uint256 public nextUndelegateUUID;
     uint256 public confirmedUndelegatedUUID;
@@ -54,9 +54,11 @@ contract ListaStakeManager is
 
     address private constant NATIVE_STAKING = 0x0000000000000000000000000000000000002001;
 
-    uint256 private spareSlisBnb; // extra slisBnb from last undelegate operation by bot
-    uint256 public nextClaimableIndex; // the index pf next claimable request in queue
     mapping(address => ValidatorStatus) public validators;
+
+    uint256 private quotaForNextBatch; // extra slisBnb burned and will be used in the next `undelegateFrom`
+    uint256 private quotaForNextClaim; // the amount Bnb received but not claimale yet
+    uint256 public nextClaimableIndex; // the index pf next claimable request in queue
     UserRequest[] internal withdrawalQueue; // queue for requested withdawals
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -202,18 +204,18 @@ contract ListaStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
-	require(amountToDelegate >= _amt, "Not enough BNB to delegate");
-	uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
+        require(amountToDelegate >= _amt, "Not enough BNB to delegate");
+        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = _amt - (_amt % TEN_DECIMALS);
 
-	require(validators[_validator].active == true, "Inactive validator");
+        require(validators[_validator].active == true, "Inactive validator");
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(_amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
-	validators[_validator].amount += _amount;
+        validators[_validator].amount += _amount;
 
         // delegate through native staking contract
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value}(_validator, _amount);
@@ -235,10 +237,10 @@ contract ListaStakeManager is
         require(srcValidator != dstValidator, "Invalid Redelegation");
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
-	require(validators[srcValidator].amount >= amount, "Insufficient balance of srcValidator");
+        require(validators[srcValidator].amount >= amount, "Insufficient balance of srcValidator");
 
-	validators[srcValidator].amount -= amount;
-	validators[dstValidator].amount += amount;
+        validators[srcValidator].amount -= amount;
+        validators[dstValidator].amount += amount;
         // redelegate through native staking contract
         IStaking(NATIVE_STAKING).redelegate{value: msg.value}(srcValidator, dstValidator, amount);
 
@@ -298,12 +300,12 @@ contract ListaStakeManager is
             })
         );
 
-	withdrawalQueue.push(
-	    UserRequest({
-		user: msg.sender,
-		idx: userWithdrawalRequests[msg.sender].length - 1 // position in mapping
-	    })
-	);
+        withdrawalQueue.push(
+            UserRequest({
+                user: msg.sender,
+                idx: userWithdrawalRequests[msg.sender].length - 1 // position in mapping
+            })
+        );
 
         IERC20Upgradeable(snBnb).safeTransferFrom(
             msg.sender,
@@ -343,36 +345,36 @@ contract ListaStakeManager is
         address user = msg.sender;
         WithdrawalRequest[] storage userRequests = userWithdrawalRequests[user];
 
-	uint256 amount = 0;
+        uint256 amount = 0;
 
-	require(userRequests.length > 0, "no request claimable");
-	uint256 count =userRequests.length;
-	while (count != 0) { // iterate from end to head
-	    uint idx_ = count - 1;
-	    WithdrawalRequest storage withdrawRequest = userRequests[idx_];
-	    uint256 uuid = withdrawRequest.uuid;
-	    uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
+        require(userRequests.length > 0, "no request claimable");
+        uint256 count =userRequests.length;
+        while (count != 0) { // iterate from end to head
+            uint idx_ = count - 1;
+            WithdrawalRequest storage withdrawRequest = userRequests[idx_];
+            uint256 uuid = withdrawRequest.uuid;
+            uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
 
-	    BotUndelegateRequest
-		storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
-	    if (botUndelegateRequest.endTime == 0) {
-		continue;
-	    } else {
-		// swap and pop
-		userRequests[idx_] = userRequests[userRequests.length - 1];
-		userRequests.pop();
+            BotUndelegateRequest
+                storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+            if (botUndelegateRequest.endTime == 0) {
+                continue;
+            } else {
+                // swap and pop
+                userRequests[idx_] = userRequests[userRequests.length - 1];
+                userRequests.pop();
 
-		uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
-		uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
-		uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
-		    totalSlisBnbToBurn_;
-		amount += _amount;
-	    }
+                uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+                uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
+                uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
+                    totalSlisBnbToBurn_;
+                amount += _amount;
+            }
 
-	    count -= 1;
-	}
+            count -= 1;
+        }
 
-	require(amount > 0, "nothing to claim");
+        require(amount > 0, "nothing to claim");
         AddressUpgradeable.sendValue(payable(user), amount);
 
         emit ClaimAllWithdrawals(user, amount);
@@ -450,37 +452,25 @@ contract ListaStakeManager is
             _amount >= IStaking(NATIVE_STAKING).getMinDelegation(),
             "Insufficient Withdraw Amount"
         );
-	uint256 slisBnbToBurn = convertBnbToSlisBnb(_amount);
-	require(slisBnbToBurn <= totalSnBnbToBurn, "Not enough slisBNB to burn");
+        uint256 slisBnbToBurn = convertBnbToSlisBnb(_amount);
+        require(slisBnbToBurn <= totalSnBnbToBurn, "Not enough slisBNB to burn");
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: block.timestamp,
             endTime: 0,
             amount: _amount, // BNB
             amountInSnBnb: slisBnbToBurn // slisBNB
         });
-	totalDelegated -= _amount;
+        totalDelegated -= _amount;
         totalSnBnbToBurn -= slisBnbToBurn;
         ISLisBNB(snBnb).burn(address(this), slisBnbToBurn);
 
-	require(validators[_validator].amount >= _amount, "Insufficient amount");
-	validators[_validator].amount -= _amount;
-	slisBnbToBurn += spareSlisBnb;
-	for (uint256 i = nextClaimableIndex; i < withdrawalQueue.length; i++) {
-	    UserRequest memory req = withdrawalQueue[i];
-	    WithdrawalRequest storage reqData = userWithdrawalRequests[req.user][req.idx];
-	    if (reqData.amountInSnBnb <= slisBnbToBurn) {
-		reqData.uuid = _uuid; // request amount could be covered by this uuid
-		slisBnbToBurn -= reqData.amountInSnBnb;
-	    } else {
-		spareSlisBnb = slisBnbToBurn; // reset spare amount
-		break;
-	    }
-	}
+        require(validators[_validator].amount >= _amount, "Insufficient amount");
+        validators[_validator].amount -= _amount;
 
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
 
-	emit Undelegate(_uuid, _amount);
+        emit Undelegate(_uuid, _amount);
     }
 
     function claimUndelegated()
@@ -492,22 +482,32 @@ contract ListaStakeManager is
     {
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         require(undelegatedAmount > 0, "Nothing to undelegate");
+        uint256 claimableAmount = undelegatedAmount + quotaForNextClaim;
         for (uint256 i = confirmedUndelegatedUUID; i <= nextUndelegateUUID - 1; i++) {
             BotUndelegateRequest
                 storage botUndelegateRequest = uuidToBotUndelegateRequestMap[i];
+            if (claimableAmount < botUndelegateRequest.amount) {
+                break; // unable to cover this batch
+            }
             botUndelegateRequest.endTime = block.timestamp;
             confirmedUndelegatedUUID++;
-        }
+            claimableAmount -= botUndelegateRequest.amount;
 
-	for (uint256 i = nextClaimableIndex; i < withdrawalQueue.length; i++) {
-	    UserRequest memory req = withdrawalQueue[i];
-	    WithdrawalRequest memory reqData = userWithdrawalRequests[req.user][req.idx];
-	    if ( reqData.uuid < confirmedUndelegatedUUID ) {
-		nextClaimableIndex += 1;
-	    } else {
-		break;
-	    }
-	}
+            uint256 batchAmount = botUndelegateRequest.amount + quotaForNextBatch;
+            for (uint256 j = nextClaimableIndex; j < withdrawalQueue.length; j++) {
+                UserRequest memory req = withdrawalQueue[j];
+                WithdrawalRequest storage reqData = userWithdrawalRequests[req.user][req.idx];
+                if (reqData.amountInSnBnb <= batchAmount) {
+                    reqData.uuid = i; // update uuid which this request belongs to
+                    nextClaimableIndex += 1;
+                    batchAmount -= reqData.amountInSnBnb;
+                } else {
+                    break;
+                }
+            }
+            quotaForNextBatch = batchAmount;
+        }
+        quotaForNextClaim = claimableAmount;
 
         _uuid = confirmedUndelegatedUUID;
         _amount = undelegatedAmount;
@@ -776,10 +776,24 @@ contract ListaStakeManager is
     }
 
     /**
-     * @return relayFee required by Native Staking contract to transfer funds from BSC -> BC
+     * @return relayFee required by Native Staking contract
      */
     function getRelayFee() public view override returns (uint256) {
         return IStaking(NATIVE_STAKING).getRelayerFee();
+    }
+
+    /**
+     * @return the timestamp to be able to invole `undelegate`
+     */
+    function getPendingUndelegateTime(address validator) external view override returns (uint256) {
+        return IStaking(NATIVE_STAKING).getPendingUndelegateTime(address(this), validator);
+    }
+
+    /**
+     * @return delegated amount to given validator
+     */
+    function getDelegated(address validator) external view override returns (uint256) {
+        return IStaking(NATIVE_STAKING).getDelegated(address(this), validator);
     }
 
     /**
@@ -830,8 +844,8 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(!validators[bcValidator].active &&
-		validators[bcValidator].amount == 0,
-		"BC Validator whitelisted");
+                validators[bcValidator].amount == 0,
+                "BC Validator whitelisted");
         require(bcValidator != address(0), "zero address provided");
 
         validators[bcValidator].active = true;

@@ -141,6 +141,10 @@ interface IStakeManager {
 
     function getRelayFee() external view returns (uint256);
 
+    function getPendingUndelegateTime(address validator) external view returns (uint256);
+
+    function getDelegated(address validator) external view returns (uint256);
+
     function convertBnbToSlisBnb(uint256 _amount) external view returns (uint256);
 
     function convertSlisBnbToBnb(uint256 _amountInBnbX)
