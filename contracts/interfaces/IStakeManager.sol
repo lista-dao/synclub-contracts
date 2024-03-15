@@ -22,12 +22,13 @@ interface IStakeManager {
     }
 
     struct UserRequest {
-        address user;
-        uint256 idx;
+        uint256 uuid;
+        uint256 amount;
+        uint256 amountInSlisBnb;
     }
 
     function initialize(
-        address _snBnb,
+        address _slisBnb,
         address _admin,
         address _manager,
         address _bot,
