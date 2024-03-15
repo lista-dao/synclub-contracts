@@ -24,11 +24,10 @@ contract ListaStakeManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint256 public totalSnBnbToBurn; // received User withdraw requests - ideally undelegate all
-                                     // useless in new logic
+    uint256 public totalSnBnbToBurn; // received User withdraw requests; no use in new logic
 
     uint256 public totalDelegated; // total BNB delegated
-    uint256 public amountToDelegate; // total BNB to delegate for next batch; (User deposits + rewards  - delegated) - ideally delegate all
+    uint256 public amountToDelegate; // total BNB to delegate for next batch; (User deposits + rewards  - delegated)
 
     uint256 public nextUUID; // global UUID for each user withdrawal request
     uint256 public nextConfirmedUUID; // next confirmed UUID for user withdrawal requests
@@ -246,6 +245,7 @@ contract ListaStakeManager is
 
         return amount;
     }
+
     /**
      * @dev Allows bot to compound rewards
      */
@@ -283,12 +283,9 @@ contract ListaStakeManager is
     {
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
-        //totalSnBnbToBurn += _amountInSlisBnb;
-        uint256 totalBnbToWithdraw = convertSlisBnbToBnb(totalSnBnbToBurn);
-        require(
-            totalBnbToWithdraw <= totalDelegated + amountToDelegate,
-            "Not enough BNB to withdraw"
-        );
+        uint256 bnbToWithdraw = convertSlisBnbToBnb(_amountInSlisBnb);
+        bnbToWithdraw -= (bnbToWithdraw % TEN_DECIMALS);
+        require(bnbToWithdraw > 0, "Bnb amount is too small");
 
         nextUUID++;
         userWithdrawalRequests[msg.sender].push(
@@ -302,7 +299,7 @@ contract ListaStakeManager is
         withdrawalQueue.push(
             UserRequest({
                 uuid: nextUUID,
-                amount:convertSlisBnbToBnb(_amountInSlisBnb),
+                amount: bnbToWithdraw,
                 amountInSlisBnb: _amountInSlisBnb
             })
         );
@@ -364,10 +361,8 @@ contract ListaStakeManager is
             uint256 uuid = withdrawRequest.uuid;
             UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
 
-            if (
-                (request.uuid == 0 && uuidToBotUndelegateRequestMap[uuid].endTime == 0)
-                || (request.uuid != 0 && uuid < nextConfirmedUUID)
-            ) {
+            if ((request.uuid == 0 && uuidToBotUndelegateRequestMap[uuid].endTime == 0)
+                || (request.uuid != 0 && uuid >= nextConfirmedUUID)) {
                 count -= 1;
                 continue; // Skip requests which are Not claimable yet
             }
@@ -497,10 +492,7 @@ contract ListaStakeManager is
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
 
-        // undelegate through native staking contract
-        IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
-
-        emit Undelegate(_uuid, _amount);
+        emit Undelegate(undelegatedIndex, _amount);
     }
 
     function claimUndelegated()
@@ -527,7 +519,6 @@ contract ListaStakeManager is
             ++nextConfirmedUUID;
         }
 
-        // TODO: double check boundery - nextConfirmedUUID
         // new logic
         for (uint256 i = nextConfirmedUUID; i < nextUUID; ++i) {
             UserRequest storage req = withdrawalQueue[requestIndexMap[i]];
