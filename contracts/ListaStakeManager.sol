@@ -57,9 +57,9 @@ contract ListaStakeManager is
 
     mapping(address => ValidatorStatus) public validators;
 
-    uint256 private undelegatedQuota; // the amount Bnb received but not claimale yet
+    uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
     uint256 public undelegatedIndex; // the index of last delegated request in queue
-    UserRequest[] internal withdrawalQueue; // queue for requested withdawals
+    UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
 
@@ -521,17 +521,16 @@ contract ListaStakeManager is
         require(totalSnBnbToBurn == 0, "Not able to claim yet");
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         require(undelegatedAmount > 0, "Nothing to claim");
-        uint256 _undelegatedAmount = undelegatedAmount + undelegatedQuota;
+        undelegatedQuota += undelegatedAmount;
 
         uint256 oldLastUUID = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : nextUUID;
         for (uint256 i = nextConfirmedUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
-            if (_undelegatedAmount < botRequest.amount) {
-                undelegatedQuota += _undelegatedAmount; // add to quota
+            if (undelegatedQuota < botRequest.amount) {
                 return (0, 0);
             }
             botRequest.endTime = block.timestamp;
-            _undelegatedAmount -= botRequest.amount;
+            undelegatedQuota -= botRequest.amount;
             ++nextConfirmedUUID;
         }
 
@@ -539,14 +538,13 @@ contract ListaStakeManager is
         // new logic
         for (uint256 i = nextConfirmedUUID; i < nextUUID; ++i) {
             UserRequest storage req = withdrawalQueue[requestIndexMap[i]];
-            if (req.uuid == 0 || req.amount > _undelegatedAmount) {
+            if (req.uuid == 0 || req.amount > undelegatedQuota) {
                 break;
             }
-            _undelegatedAmount -= req.amount;
+            undelegatedQuota -= req.amount;
             ++nextConfirmedUUID;
         }
 
-        undelegatedQuota = _undelegatedAmount; // store unused Bnb for next claim
         _uuid = nextConfirmedUUID;
         _amount = undelegatedAmount;
 
