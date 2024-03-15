@@ -16,11 +16,6 @@ interface IStakeManager {
         uint256 startTime;
     }
 
-    struct ValidatorStatus {
-        uint256 amount;
-        bool active;
-    }
-
     struct UserRequest {
         uint256 uuid;
         uint256 amount;

@@ -55,7 +55,7 @@ contract ListaStakeManager is
 
     address private constant NATIVE_STAKING = 0x0000000000000000000000000000000000002001;
 
-    mapping(address => ValidatorStatus) public validators;
+    mapping(address => bool) public validators;
 
     uint256 private undelegatedQuota; // the amount Bnb received but not claimale yet
     uint256 public undelegatedIndex; // the index of last delegated request in queue
@@ -211,13 +211,12 @@ contract ListaStakeManager is
         uint256 relayFeeReceived = msg.value;
         _amount = _amt - (_amt % TEN_DECIMALS);
 
-        require(validators[_validator].active == true, "Inactive validator");
+        require(validators[_validator] == true, "Inactive validator");
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(_amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
-        validators[_validator].amount += _amount;
 
         // delegate through native staking contract
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value}(_validator, _amount);
@@ -239,10 +238,7 @@ contract ListaStakeManager is
         require(srcValidator != dstValidator, "Invalid Redelegation");
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
-        require(validators[srcValidator].amount >= amount, "Insufficient balance of srcValidator");
 
-        validators[srcValidator].amount -= amount;
-        validators[dstValidator].amount += amount;
         // redelegate through native staking contract
         IStaking(NATIVE_STAKING).redelegate{value: msg.value}(srcValidator, dstValidator, amount);
 
@@ -501,9 +497,6 @@ contract ListaStakeManager is
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
 
-        require(validators[_validator].amount >= _amount, "Insufficient amount");
-        validators[_validator].amount -= _amount;
-
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
 
@@ -687,10 +680,10 @@ contract ListaStakeManager is
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(!validators[_address].active, "Validator shoule be inactive");
+        require(!validators[_address], "Validator shoule be inactive");
         require(_address != address(0), "zero address provided");
 
-        validators[_address].active = true;
+        validators[_address] = true;
 
         emit WhitelistValidator(_address);
     }
@@ -700,9 +693,9 @@ contract ListaStakeManager is
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(validators[_address].active, "Validator is not active");
+        require(validators[_address], "Validator is not active");
 
-        validators[_address].active = false;
+        validators[_address] = false;
 
         emit DisableValidator(_address);
     }
@@ -712,8 +705,7 @@ contract ListaStakeManager is
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(!validators[_address].active, "Validator is should be inactive");
-        require(validators[_address].amount == 0, "Delegated amount remains");
+        require(!validators[_address], "Validator is should be inactive");
 
         delete validators[_address];
 
@@ -888,13 +880,10 @@ contract ListaStakeManager is
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(!validators[bcValidator].active &&
-                validators[bcValidator].amount == 0,
-                "BC Validator whitelisted");
+        require(!validators[bcValidator], "BC Validator whitelisted");
         require(bcValidator != address(0), "zero address provided");
 
-        validators[bcValidator].active = true;
-        validators[bcValidator].amount = totalDelegated;
+        validators[bcValidator] = true;
 
         emit WhitelistValidator(bcValidator);
     }
