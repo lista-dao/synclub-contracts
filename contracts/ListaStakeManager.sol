@@ -526,10 +526,16 @@ contract ListaStakeManager is
         uint256 oldLastUUID = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : nextUUID;
         for (uint256 i = nextConfirmedUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
+            if (_undelegatedAmount < botRequest.amount) {
+                undelegatedQuota += _undelegatedAmount; // add to quota
+                return (0, 0);
+            }
             botRequest.endTime = block.timestamp;
             _undelegatedAmount -= botRequest.amount;
+            ++nextConfirmedUUID;
         }
 
+        // TODO: double check boundery - nextConfirmedUUID
         // new logic
         for (uint256 i = nextConfirmedUUID; i < nextUUID; ++i) {
             UserRequest storage req = withdrawalQueue[requestIndexMap[i]];
@@ -781,8 +787,7 @@ contract ListaStakeManager is
         uint256 uuid = withdrawRequest.uuid;
         _isClaimable = uuid < nextConfirmedUUID;
 
-        //uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
-        UserRequest memory request = withdrawalQueue[requestIndexMap[uuid]];
+        UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
         uint256 amount = 0;
         if (request.uuid != 0) {
             // new logic
@@ -790,7 +795,7 @@ contract ListaStakeManager is
         } else {
             // old logic
             uint256 amountInSnBnb = withdrawRequest.amountInSnBnb;
-            BotUndelegateRequest memory botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+            BotUndelegateRequest storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
 
             // bot has triggered startUndelegation
             if (botUndelegateRequest.amount > 0) {
