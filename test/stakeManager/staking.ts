@@ -17,11 +17,13 @@ describe("SnStakeManager::staking", function() {
   let mockNativeStaking: MockContract;
   let snBnb: Contract;
   let stakeManager: Contract;
+  let listaStakeManager: Contract;
   let admin: SignerWithAddress;
   let manager: SignerWithAddress;
   let bot: SignerWithAddress;
   let user: SignerWithAddress;
   let nativeStakingSigner: SignerWithAddress;
+  let validator: string;
 
   before(async function() {
     // Reset the Hardhat Network, starting a new instance
@@ -138,7 +140,7 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Should be able to deposit with properly confirations", async function() {
-    expect(await stakeManager.convertBnbToSlisBnb(1)).to.equals(1);
+    expect(await stakeManager.convertBnbToSnBnb(1)).to.equals(1);
     const [balance1Before] = await Promise.all([
       snBnb.balanceOf(user.address),
     ]);
@@ -146,7 +148,7 @@ describe("SnStakeManager::staking", function() {
     await stakeManager.connect(user).deposit({
       value: ethers.utils.parseEther("0.2"),
     });
-    expect(await stakeManager.convertBnbToSlisBnb(1)).to.equals(1);
+    expect(await stakeManager.convertBnbToSnBnb(1)).to.equals(1);
     const [balance1After] = await Promise.all([
       snBnb.balanceOf(user.address),
     ]);
@@ -237,7 +239,7 @@ describe("SnStakeManager::staking", function() {
 
     // 1 * 1.2 / (1.2 + 0.099)
     expect(
-      await stakeManager.convertBnbToSlisBnb(ethers.utils.parseEther("1"))
+      await stakeManager.convertBnbToSnBnb(ethers.utils.parseEther("1"))
     ).to.equals(ethers.utils.parseEther("0.923787528868360277"));
     await stakeManager.connect(user).deposit({
       value: ethers.utils.parseEther("1"),
@@ -266,11 +268,11 @@ describe("SnStakeManager::staking", function() {
       ethers.utils.parseEther("2.123787528868360277")
     );
     expect(
-      await stakeManager.convertBnbToSlisBnb(ethers.utils.parseEther("1"))
+      await stakeManager.convertBnbToSnBnb(ethers.utils.parseEther("1"))
     ).to.equals(ethers.utils.parseEther("0.923787528868360277"));
     // (1 * 2.299) / (1.2 + 0.923787528868360277)
     expect(
-      await stakeManager.convertSlisBnbToBnb(ethers.utils.parseEther("1"))
+      await stakeManager.convertSnBnbToBnb(ethers.utils.parseEther("1"))
     ).to.equals(ethers.utils.parseEther("1.0825"));
 
     const [balance1Before, balance2Before] = await Promise.all([
@@ -286,7 +288,7 @@ describe("SnStakeManager::staking", function() {
       user.address
     );
 
-    expect(res[0][0]).to.equals(ethers.constants.MaxUint256);
+    expect(res[0][0]).to.equals(0);
     expect(res[0][1]).to.equals(
       ethers.utils.parseEther("0.923787528868360277")
     );
@@ -315,7 +317,7 @@ describe("SnStakeManager::staking", function() {
     );
     // expect to receive BNB amount
     expect(
-      await stakeManager.convertSlisBnbToBnb(
+      await stakeManager.convertSnBnbToBnb(
         ethers.utils.parseEther("1.123787528868360277")
       )
     ).to.equals(ethers.utils.parseEther("1.216499999999999999"));
@@ -360,7 +362,7 @@ describe("SnStakeManager::staking", function() {
       ethers.utils.parseEther("1.123787528868360277")
     );
     expect(
-      await stakeManager.convertSlisBnbToBnb(
+      await stakeManager.convertSnBnbToBnb(
         ethers.utils.parseEther("1.123787528868360277")
       )
     ).to.equals(ethers.utils.parseEther("1.216499999999999999"));
@@ -445,19 +447,15 @@ describe("SnStakeManager::staking", function() {
     );
   });
 
-  it.skip("Should be able to claim withdraw by user", async function() {
+  it("Should be able to claim withdraw by user", async function() {
     const requests = await stakeManager.getUserWithdrawalRequests(user.address);
-    console.log(requests);
     const uuid = await stakeManager.confirmedUndelegatedUUID();
-    console.log("uuid: ", uuid);
     const botReq = await stakeManager.getBotUndelegateRequest(uuid - 1);
-    console.log(botReq);
 
     const status1 = await stakeManager.getUserRequestStatus(
       user.address,
       0
     );
-    console.log(status1);
     expect(status1[0]).to.equals(true);
     expect(status1[1]).to.equals(
       ethers.utils.parseEther("0.999999991779695848")
@@ -580,25 +578,6 @@ describe("SnStakeManager::staking", function() {
     ).to.be.revertedWith("Insufficient Deposit Amount");
   });
 
-  it("Should be able to delegate to specified validator", async function() {
-    const validator = this.addrs[8].address;
-    const _ = await stakeManager
-      .connect(admin)
-      .whitelistValidator(validator);
-
-    await stakeManager.deposit({ value: ethers.utils.parseEther("5") });
-
-    const tx = await stakeManager
-      .connect(bot)
-      .delegateTo(validator, ethers.utils.parseEther("1"), {
-        value: RELAYER_FEE,
-      });
-
-    expect(tx)
-      .to.emit(stakeManager, "DelegateTo")
-      .withArgs(validator, ethers.utils.parseEther("1"));
-  });
-
   it("Should be able to redelegate with properly configurations", async function() {
     const validator1 = this.addrs[8].address;
     const validator2 = this.addrs[9].address;
@@ -622,14 +601,85 @@ describe("SnStakeManager::staking", function() {
     expect(res[2]).to.equals(this.addrs[8].address);
   });
 
-  it("Should be able to get slisbnb withdraw limit", async function() {
-    expect(await stakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      ethers.utils.parseEther("1.723879900934134864")
-    );
-  });
 
   it("Should be able to get token hub relay fee", async function() {
     await mockNativeStaking.mock.getRelayerFee.returns(RELAYER_FEE);
-    expect(await stakeManager.getRelayFee()).to.equals(RELAYER_FEE);
+    expect(await stakeManager.getTokenHubRelayFee()).to.equals(RELAYER_FEE);
+  });
+
+  it("====Upgrade SnStakeManager to ListaStakeManager====", async function() {
+    const ListaStakeManager = await ethers.getContractFactory("ListaStakeManager");
+    listaStakeManager = await upgrades.upgradeProxy(stakeManager, ListaStakeManager, {
+      unsafeAllowRenames: true,
+    });
+    await listaStakeManager.deployed();
+  });
+
+  it("Bot should be able to delegate to specified validator", async function() {
+    validator = this.addrs[8].address;
+
+    const _ = await listaStakeManager
+      .connect(admin)
+      .whitelistValidator(validator);
+
+    await expect(listaStakeManager
+      .connect(user)
+      .deposit({ value: ethers.utils.parseEther("5") }))
+      .to.emit(listaStakeManager, "Deposit")
+      .withArgs(user.address, ethers.utils.parseEther("5"));
+
+    await expect(listaStakeManager
+      .connect(bot)
+      .delegateTo(validator, ethers.utils.parseEther("2"), {
+        value: RELAYER_FEE,
+      }))
+      .to.emit(listaStakeManager, "DelegateTo")
+      .withArgs(validator, ethers.utils.parseEther("2"));
+  });
+
+  it("Should be able to get slisbnb withdraw limit", async function() {
+    expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
+      ethers.utils.parseEther("2.647667421268661235")
+    );
+  });
+
+  it("User should be able to request withdraw", async function() {
+    await expect(listaStakeManager.connect(user).requestWithdraw(ethers.utils.parseEther("1")))
+    .to.emit(listaStakeManager, "RequestWithdraw")
+    .withArgs(user.address, ethers.utils.parseEther("1"));
+  });
+
+  it("Bot shoule be able to undelegate from specified validator", async function() {
+    await expect(listaStakeManager.connect(bot)
+    .undelegate({ value: RELAYER_FEE }))
+    .to.be.revertedWith("Nothing to undelegate");
+
+    await expect(listaStakeManager.connect(bot)
+    .undelegateFrom(validator, ethers.utils.parseEther("2"), { value: RELAYER_FEE }))
+    .to.emit(listaStakeManager, "Undelegate")
+    .withArgs(1, ethers.utils.parseEther("2"));
+  });
+
+  it("Bot should be able to claim undelegate", async function() {
+    await mockNativeStaking.mock.claimUndelegated.returns(ethers.utils.parseEther("2"));
+
+    await expect(listaStakeManager.connect(bot).claimUndelegated())
+    .to.emit(listaStakeManager, "ClaimUndelegated")
+    .withArgs(2, ethers.utils.parseEther("2"));
+  });
+
+  it("User should be able to claim withdraw", async function() {
+    const req = await listaStakeManager.getUserWithdrawalRequests(user.address);
+    expect(req[0][0]).to.equals(2); // uuid is 2
+
+    const balanceBefore = await ethers.provider.getBalance(user.address);
+
+    await expect(listaStakeManager.connect(user).claimWithdraw(0))
+    .to.emit(listaStakeManager, "ClaimWithdrawal")
+    .withArgs(user.address, 0, ethers.utils.parseEther("1.08250001"));
+
+    const balanceAfter = await ethers.provider.getBalance(user.address);
+
+    expect(balanceAfter.sub(balanceBefore)).to.equals(ethers.utils.parseEther("1.082442465095811128"));
   });
 });
