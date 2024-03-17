@@ -325,7 +325,7 @@ contract ListaStakeManager is
         uint256 amount;
         if (request.uuid != 0) {
             // new logic
-            require(uuid < nextConfirmedUUID, "Not able to claim yet");
+            require(uuid >= nextConfirmedUUID, "Not able to claim yet");
             amount = request.amount;
         } else {
             // old logic
