@@ -29,7 +29,7 @@ contract ListaStakeManager is
     uint256 public totalDelegated; // total BNB delegated
     uint256 public amountToDelegate; // total BNB to delegate for next batch; (User deposits + rewards  - delegated)
 
-    uint256 public nextRequestUUID; // global UUID for each user withdrawal request
+    uint256 public requestUUID; // global UUID for each user withdrawal request
     uint256 public nextConfirmedRequestUUID; // next confirmed UUID for user withdrawal requests
 
     uint256 public reserveAmount; // will be used to adjust minThreshold delegate/undelegate for natvie staking
@@ -287,10 +287,10 @@ contract ListaStakeManager is
         bnbToWithdraw -= (bnbToWithdraw % TEN_DECIMALS);
         require(bnbToWithdraw > 0, "Bnb amount is too small");
 
-        nextRequestUUID++;
+        requestUUID++;
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest({
-                uuid: nextRequestUUID,
+                uuid: requestUUID,
                 amountInSnBnb: _amountInSlisBnb,
                 startTime: block.timestamp
             })
@@ -298,12 +298,12 @@ contract ListaStakeManager is
 
         withdrawalQueue.push(
             UserRequest({
-                uuid: nextRequestUUID,
+                uuid: requestUUID,
                 amount: bnbToWithdraw,
                 amountInSlisBnb: _amountInSlisBnb
             })
         );
-        requestIndexMap[nextRequestUUID] = withdrawalQueue.length - 1;
+        requestIndexMap[requestUUID] = withdrawalQueue.length - 1;
 
         IERC20Upgradeable(slisBnb).safeTransferFrom(
             msg.sender,
@@ -413,7 +413,7 @@ contract ListaStakeManager is
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
 
         // old logic, handle history data
-        _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : nextRequestUUID;
+        _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         _amount = convertSnBnbToBnb(totalSlisBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
@@ -445,7 +445,7 @@ contract ListaStakeManager is
      * @dev Bot uses this function to get amount of BNB to withdraw
      * @param _validator - Validator to undelegate from
      * @param _amt - Amount of BNB to undelegate
-     * @return nextUndelegatedRequestIndex - the next request index to be undelegated
+     * @return _nextUndelegatedRequestIndex - the next request index to be undelegated
      * @return _amount - Amount of funds required to Unstake
      */
     function undelegateFrom(address _validator, uint256 _amt)
@@ -454,7 +454,7 @@ contract ListaStakeManager is
         override
         whenNotPaused
         onlyRole(BOT)
-        returns (uint256 nextUndelegatedRequestIndex, uint256 _amount)
+        returns (uint256 _nextUndelegatedRequestIndex, uint256 _amount)
     {
         require(totalDelegated >= _amt, "Not enough BNB to undelegate");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
@@ -490,6 +490,7 @@ contract ListaStakeManager is
 
         // undelegate through native staking contract
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
+        _nextUndelegatedRequestIndex = nextUndelegatedRequestIndex;
 
         emit Undelegate(nextUndelegatedRequestIndex, _amount);
     }
@@ -507,7 +508,7 @@ contract ListaStakeManager is
         require(undelegatedAmount > 0, "Nothing to claim");
         undelegatedQuota += undelegatedAmount;
 
-        uint256 oldLastUUID = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : nextRequestUUID;
+        uint256 oldLastUUID = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
@@ -519,7 +520,7 @@ contract ListaStakeManager is
         }
 
         // new logic
-        for (uint256 i = nextConfirmedRequestUUID; i < nextRequestUUID; ++i) {
+        for (uint256 i = nextConfirmedRequestUUID; i <= requestUUID; ++i) {
             UserRequest storage req = withdrawalQueue[requestIndexMap[i]];
             if (req.uuid == 0 || req.amount > undelegatedQuota) {
                 break;
