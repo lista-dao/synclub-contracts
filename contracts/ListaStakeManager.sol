@@ -235,6 +235,7 @@ contract ListaStakeManager is
         uint256 relayFeeReceived = msg.value;
 
         require(srcValidator != dstValidator, "Invalid Redelegation");
+        require(validators[dstValidator], "inactive dst validator");
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
