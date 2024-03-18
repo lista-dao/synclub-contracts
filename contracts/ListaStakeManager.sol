@@ -670,7 +670,7 @@ contract ListaStakeManager is
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(!validators[_address], "Validator shoule be inactive");
+        require(!validators[_address], "Validator should be inactive");
         require(_address != address(0), "zero address provided");
 
         validators[_address] = true;
