@@ -235,7 +235,7 @@ contract ListaStakeManager is
         uint256 relayFeeReceived = msg.value;
 
         require(srcValidator != dstValidator, "Invalid Redelegation");
-        require(validators[dstValidator], "inactive dst validator");
+        require(validators[dstValidator], "Inactive dst validator");
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
         require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
@@ -696,7 +696,7 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(!validators[_address], "Validator is should be inactive");
-	require(getDelegated(_address) == 0, "balance is not zero");
+	require(getDelegated(_address) == 0, "Balance is not zero");
 
         delete validators[_address];
 
@@ -798,9 +798,10 @@ contract ListaStakeManager is
         override
         returns (uint256 _slisBnbWithdrawLimit)
     {
+        uint256 amountToUndelegate = getAmountToUndelegate();
+
         _slisBnbWithdrawLimit =
-            convertBnbToSnBnb(totalDelegated) -
-            totalSnBnbToBurn;
+            convertBnbToSnBnb(totalDelegated - amountToUndelegate) - totalSnBnbToBurn;
     }
 
     /**
@@ -827,7 +828,7 @@ contract ListaStakeManager is
     /**
      * @return _amount Bnb amount to be undelegated by bot
      */
-    function getAmountToUndelegate() external view override returns (uint256 _amount) {
+    function getAmountToUndelegate() public view override returns (uint256 _amount) {
         for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
             UserRequest storage req = withdrawalQueue[i];
             uint256 amount = req.amount;
