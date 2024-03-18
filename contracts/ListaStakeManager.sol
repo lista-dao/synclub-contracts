@@ -696,6 +696,7 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(!validators[_address], "Validator is should be inactive");
+	require(getDelegated(_address) == 0, "balance is not zero");
 
         delete validators[_address];
 
@@ -819,7 +820,7 @@ contract ListaStakeManager is
     /**
      * @return delegated amount to given validator
      */
-    function getDelegated(address validator) external view override returns (uint256) {
+    function getDelegated(address validator) public view override returns (uint256) {
         return IStaking(NATIVE_STAKING).getDelegated(address(this), validator);
     }
 
