@@ -79,7 +79,7 @@ task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
 task("upgradeStakeManagerProxy", "Upgrade StakeManager Proxy")
   .addPositionalParam("proxyAddress")
   .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
-    await upgradeProxy(hre, "SnStakeManager", proxyAddress);
+    await upgradeProxy(hre, "ListaStakeManager", proxyAddress);
   });
 
 task(
@@ -95,6 +95,20 @@ task(
 ).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
   await validateUpgrade(hre, "SnBnb", "SLisBNB");
   await deployDirect(hre, "SLisBNB");
+});
+
+task(
+  "deployMockStaking",
+  "Deploy Mock Native Staking contract"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await deployDirect(hre, "MockNativeStaking");
+});
+
+task(
+  "validateUpgrade",
+  "Validate contract upgrade from SnStakeManger to ListaStakeManager"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await validateUpgrade(hre, "SnStakeManager", "ListaStakeManager");
 });
 
 const config: HardhatUserConfig = {

@@ -2,14 +2,14 @@ import { ethers } from "hardhat";
 
 async function main() {
   const stakeManagerContractFactory = await ethers.getContractFactory(
-    "SnStakeManager"
+    "ListaStakeManager"
   );
   const stakeManagerContract = await stakeManagerContractFactory.deploy();
 
   await stakeManagerContract.deployed();
 
   console.log(
-    "SnStakeManager Contract deployed to:",
+    "ListaStakeManager Contract deployed to:",
     stakeManagerContract.address
   );
 }
