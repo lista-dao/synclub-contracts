@@ -140,6 +140,11 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Should be able to deposit with properly confirations", async function() {
+    const uuid = await stakeManager.nextUndelegateUUID();
+    expect(uuid).to.equals(0);
+    const nextConfirmedUUID = await stakeManager.confirmedUndelegatedUUID();
+    expect(nextConfirmedUUID).to.equals(0);
+
     expect(await stakeManager.convertBnbToSnBnb(1)).to.equals(1);
     const [balance1Before] = await Promise.all([
       snBnb.balanceOf(user.address),
@@ -178,6 +183,11 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Shoule be able to delegate by bot", async function() {
+    const uuid = await stakeManager.nextUndelegateUUID();
+    expect(uuid).to.equals(0);
+    const nextConfirmedUUID = await stakeManager.confirmedUndelegatedUUID();
+    expect(nextConfirmedUUID).to.equals(0);
+
     await stakeManager.connect(this.addrs[7]).deposit({
       value: ethers.utils.parseEther("1"),
     });
@@ -259,6 +269,11 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Should be able to request withdraw with property configrations", async function() {
+    const uuid = await stakeManager.nextUndelegateUUID();
+    expect(uuid).to.equals(0);
+    const nextConfirmedUUID = await stakeManager.confirmedUndelegatedUUID();
+    expect(nextConfirmedUUID).to.equals(0);
+
     // approve first
     await snBnb
       .connect(user)
@@ -358,6 +373,11 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Should be able to undelegate by bot", async function() {
+    const uuid = await stakeManager.nextUndelegateUUID();
+    expect(uuid).to.equals(0);
+    const nextConfirmedUUID = await stakeManager.confirmedUndelegatedUUID();
+    expect(nextConfirmedUUID).to.equals(0);
+
     expect(await stakeManager.totalSnBnbToBurn()).to.equals(
       ethers.utils.parseEther("1.123787528868360277")
     );
@@ -386,6 +406,11 @@ describe("SnStakeManager::staking", function() {
     await expect(
       stakeManager.connect(bot).undelegate({ value: RELAYER_FEE })
     ).to.be.revertedWith("Insufficient Withdraw Amount");
+
+    const uuid_ = await stakeManager.nextUndelegateUUID();
+    expect(uuid_).to.equals(1); // increase by 1
+    const nextConfirmedUUID_ = await stakeManager.confirmedUndelegatedUUID();
+    expect(nextConfirmedUUID_).to.equals(0);
   });
 
   it("Can't claim undelegated if caller is not bot", async function() {
@@ -406,20 +431,30 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("Should be able to claim undelegated by bot", async function() {
+    const uuid = await stakeManager.nextUndelegateUUID();
+    expect(uuid).to.equals(1);
+    const confirmedUndelegatedUUID = await stakeManager.confirmedUndelegatedUUID();
+    expect(confirmedUndelegatedUUID).to.equals(0);
+
     const claimedAmount = ethers.utils
       .parseEther("1.216499999999999999")
       .toString();
-    const uuid = await stakeManager.confirmedUndelegatedUUID();
-    //    const botReq = await stakeManager.getBotUndelegateRequest(uuid);
-    //    console.log(botReq);
 
     await mockNativeStaking.mock.claimUndelegated.returns(claimedAmount);
-    await expect(stakeManager.connect(bot).claimUndelegated()).to.emit(stakeManager, "ClaimUndelegated").withArgs(uuid + 1, claimedAmount);
+    await expect(stakeManager.connect(bot).claimUndelegated())
+    .to.emit(stakeManager, "ClaimUndelegated")
+    .withArgs(confirmedUndelegatedUUID + 1, claimedAmount);
     // mock send reward
     await nativeStakingSigner.sendTransaction({
       to: stakeManager.address,
       value: claimedAmount,
     });
+
+    const uuid_ = await stakeManager.nextUndelegateUUID();
+    expect(uuid_).to.equals(1);
+    const confirmedUndelegatedUUID_ = await stakeManager.confirmedUndelegatedUUID();
+    expect(confirmedUndelegatedUUID_).to.equals(1); // increase by 1
+
   });
 
   it("Can't claim faild delegation if caller is not bot", async function() {
@@ -608,6 +643,11 @@ describe("SnStakeManager::staking", function() {
   });
 
   it("====Upgrade SnStakeManager to ListaStakeManager====", async function() {
+    const uuid = await stakeManager.nextUndelegateUUID();
+    expect(uuid).to.equals(1);
+    const nextConfirmedUUID = await stakeManager.confirmedUndelegatedUUID();
+    expect(nextConfirmedUUID).to.equals(1);
+
     const ListaStakeManager = await ethers.getContractFactory("ListaStakeManager");
     listaStakeManager = await upgrades.upgradeProxy(stakeManager, ListaStakeManager, {
       unsafeAllowRenames: true,
@@ -635,6 +675,12 @@ describe("SnStakeManager::staking", function() {
       }))
       .to.emit(listaStakeManager, "DelegateTo")
       .withArgs(validator, ethers.utils.parseEther("2"));
+      const uuid = await listaStakeManager.nextUUID();
+      const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
+      console.log("after bot delegate: ");
+      console.log("uuid: ", uuid);
+      console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+
   });
 
   it("Should be able to get slisbnb withdraw limit", async function() {
@@ -647,9 +693,22 @@ describe("SnStakeManager::staking", function() {
     await expect(listaStakeManager.connect(user).requestWithdraw(ethers.utils.parseEther("1")))
     .to.emit(listaStakeManager, "RequestWithdraw")
     .withArgs(user.address, ethers.utils.parseEther("1"));
+
+    const amount = await listaStakeManager.getAmountToUndelegate();
+    expect(amount).to.equals(ethers.utils.parseEther("1.08250001"));
+
+    const undelegatedIndex = await listaStakeManager.undelegatedIndex();
+    expect(undelegatedIndex).to.equals(0);
+
+    const uuid = await listaStakeManager.nextUUID();
+    const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
+    console.log("after user request withdraw: ");
+    console.log("uuid: ", uuid);
+    console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+
   });
 
-  it("Bot shoule be able to undelegate from specified validator", async function() {
+  it("Bot should be able to undelegate from specified validator", async function() {
     await expect(listaStakeManager.connect(bot)
     .undelegate({ value: RELAYER_FEE }))
     .to.be.revertedWith("Nothing to undelegate");
@@ -658,6 +717,16 @@ describe("SnStakeManager::staking", function() {
     .undelegateFrom(validator, ethers.utils.parseEther("2"), { value: RELAYER_FEE }))
     .to.emit(listaStakeManager, "Undelegate")
     .withArgs(1, ethers.utils.parseEther("2"));
+
+    const undelegatedIndex = await listaStakeManager.undelegatedIndex();
+    expect(undelegatedIndex).to.equals(1);
+
+    const uuid = await listaStakeManager.nextUUID();
+    const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
+    console.log("after bot undelegate: ");
+    console.log("uuid: ", uuid);
+    console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+
   });
 
   it("Bot should be able to claim undelegate", async function() {
@@ -666,6 +735,12 @@ describe("SnStakeManager::staking", function() {
     await expect(listaStakeManager.connect(bot).claimUndelegated())
     .to.emit(listaStakeManager, "ClaimUndelegated")
     .withArgs(2, ethers.utils.parseEther("2"));
+    const uuid = await listaStakeManager.nextUUID();
+    const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
+    console.log("after bot claim undelegate: ");
+    console.log("uuid: ", uuid);
+    console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+
   });
 
   it("User should be able to claim withdraw", async function() {
@@ -673,6 +748,7 @@ describe("SnStakeManager::staking", function() {
     expect(req[0][0]).to.equals(2); // uuid is 2
 
     const balanceBefore = await ethers.provider.getBalance(user.address);
+//    await listaStakeManager.connect(user).claimAllWithdrawals();
 
     await expect(listaStakeManager.connect(user).claimWithdraw(0))
     .to.emit(listaStakeManager, "ClaimWithdrawal")
@@ -680,6 +756,6 @@ describe("SnStakeManager::staking", function() {
 
     const balanceAfter = await ethers.provider.getBalance(user.address);
 
-    expect(balanceAfter.sub(balanceBefore)).to.equals(ethers.utils.parseEther("1.082442465095811128"));
+    expect(balanceAfter.sub(balanceBefore)).to.equals(ethers.utils.parseEther("1.082442519096429670"));
   });
 });

@@ -57,7 +57,7 @@ contract ListaStakeManager is
     mapping(address => bool) public validators;
 
     uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
-    uint256 public undelegatedIndex; // the index of last delegated request in queue
+    uint256 public undelegatedIndex; // the index of last delegated request plus 1 in queue
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
@@ -820,6 +820,17 @@ contract ListaStakeManager is
      */
     function getDelegated(address validator) external view override returns (uint256) {
         return IStaking(NATIVE_STAKING).getDelegated(address(this), validator);
+    }
+
+    /**
+     * @return _amount Bnb amount to be undelegated by bot
+     */
+    function getAmountToUndelegate() external view override returns (uint256 _amount) {
+        for (uint256 i = undelegatedIndex; i < withdrawalQueue.length; ++i) {
+            UserRequest storage req = withdrawalQueue[i];
+            uint256 amount = req.amount;
+            _amount += amount;
+        }
     }
 
     /**

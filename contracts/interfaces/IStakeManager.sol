@@ -139,6 +139,8 @@ interface IStakeManager {
 
     function getPendingUndelegateTime(address validator) external view returns (uint256);
 
+    function getAmountToUndelegate() external view returns (uint256);
+
     function getDelegated(address validator) external view returns (uint256);
 
     function convertBnbToSlisBnb(uint256 _amount) external view returns (uint256);
