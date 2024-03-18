@@ -653,6 +653,8 @@ describe("SnStakeManager::staking", function() {
       unsafeAllowRenames: true,
     });
     await listaStakeManager.deployed();
+
+    expect(await listaStakeManager.undelegatedIndex()).to.equals(0);
   });
 
   it("Bot should be able to delegate to specified validator", async function() {
@@ -677,10 +679,10 @@ describe("SnStakeManager::staking", function() {
       .withArgs(validator, ethers.utils.parseEther("2"));
       const uuid = await listaStakeManager.nextUUID();
       const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
-      console.log("after bot delegate: ");
-      console.log("uuid: ", uuid);
-      console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+      expect(uuid).to.equals(1); // no change
+      expect(nextConfirmedUUID).to.equals(1); // no change
 
+      expect(await listaStakeManager.undelegatedIndex()).to.equals(0);
   });
 
   it("Should be able to get slisbnb withdraw limit", async function() {
@@ -702,10 +704,14 @@ describe("SnStakeManager::staking", function() {
 
     const uuid = await listaStakeManager.nextUUID();
     const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
-    console.log("after user request withdraw: ");
-    console.log("uuid: ", uuid);
-    console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+    expect(uuid).to.equals(2); // increase by 1
+    expect(nextConfirmedUUID).to.equals(1);
 
+    const status = await listaStakeManager.getUserRequestStatus(user.address, 0);
+    expect(status[0]).to.equals(false);
+    expect(status[1]).to.equals(0);
+
+    expect(await listaStakeManager.undelegatedIndex()).to.equals(0);
   });
 
   it("Bot should be able to undelegate from specified validator", async function() {
@@ -723,10 +729,10 @@ describe("SnStakeManager::staking", function() {
 
     const uuid = await listaStakeManager.nextUUID();
     const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
-    console.log("after bot undelegate: ");
-    console.log("uuid: ", uuid);
-    console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+    expect(uuid).to.equals(2); // no change
+    expect(nextConfirmedUUID).to.equals(1); // no change
 
+    expect(await listaStakeManager.undelegatedIndex()).to.equals(1); // increase by 1
   });
 
   it("Bot should be able to claim undelegate", async function() {
@@ -737,15 +743,15 @@ describe("SnStakeManager::staking", function() {
     .withArgs(2, ethers.utils.parseEther("2"));
     const uuid = await listaStakeManager.nextUUID();
     const nextConfirmedUUID = await listaStakeManager.nextConfirmedUUID();
-    console.log("after bot claim undelegate: ");
-    console.log("uuid: ", uuid);
-    console.log("nextConfirmedUUID: ", nextConfirmedUUID);
+    expect(uuid).to.equals(2); // no change
+    expect(nextConfirmedUUID).to.equals(2); // increase by 1
 
+    expect(await listaStakeManager.undelegatedIndex()).to.equals(1); // no change
   });
 
   it("User should be able to claim withdraw", async function() {
     const req = await listaStakeManager.getUserWithdrawalRequests(user.address);
-    expect(req[0][0]).to.equals(2); // uuid is 2
+    expect(req[0][0]).to.equals(1); // uuid is 1
 
     const balanceBefore = await ethers.provider.getBalance(user.address);
 //    await listaStakeManager.connect(user).claimAllWithdrawals();
@@ -755,7 +761,8 @@ describe("SnStakeManager::staking", function() {
     .withArgs(user.address, 0, ethers.utils.parseEther("1.08250001"));
 
     const balanceAfter = await ethers.provider.getBalance(user.address);
+    expect(balanceAfter.sub(balanceBefore)).to.equals(ethers.utils.parseEther("1.082442521096633568"));
 
-    expect(balanceAfter.sub(balanceBefore)).to.equals(ethers.utils.parseEther("1.082442519096429670"));
+    expect(await listaStakeManager.undelegatedIndex()).to.equals(1); // no change
   });
 });

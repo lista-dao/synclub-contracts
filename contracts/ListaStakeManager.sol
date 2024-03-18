@@ -287,7 +287,6 @@ contract ListaStakeManager is
         bnbToWithdraw -= (bnbToWithdraw % TEN_DECIMALS);
         require(bnbToWithdraw > 0, "Bnb amount is too small");
 
-        nextUUID++;
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest({
                 uuid: nextUUID,
@@ -304,6 +303,7 @@ contract ListaStakeManager is
             })
         );
         requestIndexMap[nextUUID] = withdrawalQueue.length - 1;
+        nextUUID++;
 
         IERC20Upgradeable(snBnb).safeTransferFrom(
             msg.sender,
@@ -325,7 +325,7 @@ contract ListaStakeManager is
         uint256 amount;
         if (request.uuid != 0) {
             // new logic
-            require(uuid >= nextConfirmedUUID, "Not able to claim yet");
+            require(uuid < nextConfirmedUUID, "Not able to claim yet");
             amount = request.amount;
         } else {
             // old logic
