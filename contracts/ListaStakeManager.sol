@@ -56,6 +56,7 @@ contract ListaStakeManager is
 
     mapping(address => bool) public validators;
 
+    uint256 private pendingUndelegatedQuota; // the amount Bnb to be used in the next `undelegateFrom`
     uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
     uint256 public nextUndelegatedRequestIndex; // the index of next request to be delegated in queue
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
@@ -474,13 +475,13 @@ contract ListaStakeManager is
 
         // calculate the amount of SnBnb to burn
         uint256 totalSnBnbToBurn_ = 0;
-        uint256 totalBnbToWithdraw_ = _amount;
+        pendingUndelegatedQuota += _amount;
         for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
             UserRequest storage req = withdrawalQueue[i];
-            if (req.amount > totalBnbToWithdraw_) {
+            if (req.amount > pendingUndelegatedQuota) {
                 break;
             }
-            totalBnbToWithdraw_ -= req.amount;
+            pendingUndelegatedQuota -= req.amount;
             totalSnBnbToBurn_ += req.amountInSlisBnb;
             ++nextUndelegatedRequestIndex;
         }

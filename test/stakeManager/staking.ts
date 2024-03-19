@@ -721,7 +721,6 @@ describe("SnStakeManager::staking", function() {
       .to.be.revertedWith("Nothing to undelegate");
 
     await mockNativeStaking.mock.undelegate.returns();
-
     await expect(listaStakeManager.connect(bot)
       .undelegateFrom(validator, ethers.utils.parseEther("2"), { value: RELAYER_FEE }))
       .to.emit(listaStakeManager, "Undelegate")
@@ -776,5 +775,62 @@ describe("SnStakeManager::staking", function() {
     //    expect(balanceAfter.sub(balanceBefore)).to.equals(ethers.utils.parseEther("1.082442469208192060"));
 
     expect(await listaStakeManager.nextUndelegatedRequestIndex()).to.equals(1); // no change
+  });
+
+  it("Bot undelegateFrom should use `pendingUndelegatedQuota`", async function() {
+    await expect(listaStakeManager
+      .connect(user)
+      .deposit({ value: ethers.utils.parseEther("5") }))
+      .to.emit(listaStakeManager, "Deposit")
+      .withArgs(user.address, ethers.utils.parseEther("5"));
+
+    await expect(listaStakeManager
+      .connect(bot)
+      .delegateTo(validator, ethers.utils.parseEther("5"), {
+        value: RELAYER_FEE,
+      }))
+      .to.emit(listaStakeManager, "DelegateTo")
+      .withArgs(validator, ethers.utils.parseEther("5"));
+    expect(await listaStakeManager.requestUUID()).to.equals(2);
+    expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextUndelegatedRequestIndex()).to.equals(1);
+    // console.log("deposit & delegateTo done");
+
+    await expect(listaStakeManager.connect(user).requestWithdraw(ethers.utils.parseEther("5")))
+      .to.emit(listaStakeManager, "RequestWithdraw")
+      .withArgs(user.address, ethers.utils.parseEther("5"));
+    expect(await listaStakeManager.requestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextUndelegatedRequestIndex()).to.equals(1);
+    // console.log("requestWithdraw done");
+
+    await mockNativeStaking.mock.undelegate.returns();
+    await expect(listaStakeManager.connect(bot)
+      .undelegateFrom(validator, ethers.utils.parseEther("3"), { value: RELAYER_FEE }))
+      .to.emit(listaStakeManager, "Undelegate")
+      .withArgs(1, ethers.utils.parseEther("3"));
+    expect(await listaStakeManager.requestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextUndelegatedRequestIndex()).to.equals(1);
+    // console.log("undelegateFrom done");
+
+    await mockNativeStaking.mock.claimUndelegated.returns(ethers.utils.parseEther("3"));
+    await expect(listaStakeManager.connect(bot).claimUndelegated())
+      .to.emit(listaStakeManager, "ClaimUndelegated")
+      .withArgs(3, ethers.utils.parseEther("3"));
+    expect(await listaStakeManager.requestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextUndelegatedRequestIndex()).to.equals(1);
+    // console.log("claimUndelegated done");
+
+    await mockNativeStaking.mock.undelegate.returns();
+    await expect(listaStakeManager.connect(bot)
+      .undelegateFrom(validator, ethers.utils.parseEther("1"), { value: RELAYER_FEE }))
+      .to.emit(listaStakeManager, "Undelegate")
+      .withArgs(2, ethers.utils.parseEther("1"));
+    expect(await listaStakeManager.requestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
+    expect(await listaStakeManager.nextUndelegatedRequestIndex()).to.equals(2); // increase by 1
+    // console.log("undelegateFrom - 2  done");
   });
 });
