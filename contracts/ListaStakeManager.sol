@@ -63,6 +63,8 @@ contract ListaStakeManager is
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
 
+    uint256 public constant slisBnbToBurnQuota; // the amount of slisBnb has been undelgated but not burned yet
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -471,7 +473,6 @@ contract ListaStakeManager is
             _amount >= IStaking(NATIVE_STAKING).getMinDelegation(),
             "Insufficient Withdraw Amount"
         );
-        totalDelegated -= _amount;
 
         // calculate the amount of SnBnb to burn
         uint256 totalSnBnbToBurn_ = 0;
@@ -485,6 +486,10 @@ contract ListaStakeManager is
             totalSnBnbToBurn_ += req.amountInSlisBnb;
             ++nextUndelegatedRequestIndex;
         }
+
+        // sisBnbToBurnQuota = real total supply - total supply to burn - (total pooled bnb * exchange rate)
+        slisBnbToBurnQuota = ISLisBNB(slisBnb).totalSupply() - totalSnBnbToBurn_ - convertBnbToSnBnb(getTotalPooledBnb() - _amount);
+        totalDelegated -= _amount;
 
         if (totalSnBnbToBurn_ > 0) {
             ISLisBNB(slisBnb).burn(address(this), totalSnBnbToBurn_);
@@ -836,6 +841,12 @@ contract ListaStakeManager is
             _amount += amount;
         }
     }
+    /**
+    * @dev Returns the totalSupply of slisBNB
+    */
+    function totalSupply() public view override returns (uint256) {
+        return ISLisBNB(slisBnb).totalSupply() - slisBnbToBurnQuota;
+    }
 
     /**
      * @dev Calculates amount of SlisBnb for `_amount` Bnb
@@ -846,7 +857,7 @@ contract ListaStakeManager is
         override
         returns (uint256)
     {
-        uint256 totalShares = ISLisBNB(slisBnb).totalSupply();
+        uint256 totalShares = totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
@@ -866,7 +877,7 @@ contract ListaStakeManager is
         override
         returns (uint256)
     {
-        uint256 totalShares = ISLisBNB(slisBnb).totalSupply();
+        uint256 totalShares = totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
