@@ -777,10 +777,9 @@ contract ListaStakeManager is
         _isClaimable = uuid < nextConfirmedRequestUUID;
 
         UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
-        uint256 amount = 0;
         if (request.uuid != 0) {
             // new logic
-            amount = request.amount;
+            _amount = request.amount;
         } else {
             // old logic
             uint256 amountInSnBnb = withdrawRequest.amountInSnBnb;
@@ -839,6 +838,9 @@ contract ListaStakeManager is
             UserRequest storage req = withdrawalQueue[i];
             uint256 amount = req.amount;
             _amount += amount;
+        }
+        if(_amount > pendingUndelegatedQuota) {
+            _amount -= pendingUndelegatedQuota;
         }
     }
 
