@@ -620,6 +620,7 @@ describe("ListaStakeManager::staking", function () {
       }
     );
     await listaStakeManager.deployed();
+    await mockNativeStaking.mock.claimReward.returns(toWei("0.01"));
   });
 
   it("Check states after upgrade", async function () {
@@ -690,7 +691,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("5.216400000000000000")
+      toWei("5.226300000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(1);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(1);
@@ -720,22 +721,22 @@ describe("ListaStakeManager::staking", function () {
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0); // no new request
 
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("6.08250001")
+      toWei("6.092400010000000000") // 0.01 reward included
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608493")
-    ); // 0.866100010000000000 * 0.923787520334526371
+      toWei("0.792841451914669975")
+    ); // 0.866100010000000000 * 0.915415590301944431
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526371")
+      toWei("0.915415590301944431")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.092400010000000000")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("5.618937601672631855")
+      toWei("5.577077951509722157")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("5.618937601672631855")); // 1 + 5 * exchange rate
+    expect(await snBnb.totalSupply()).to.equals(toWei("5.577077951509722157")); // 1 + 5 * exchange rate
 
     expect(
       await listaStakeManager.getUserWithdrawalRequests(user.address)
@@ -761,7 +762,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("2.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.226300000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(1);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(1);
@@ -791,22 +792,22 @@ describe("ListaStakeManager::staking", function () {
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0); // no new request
 
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("6.08250001")
+      toWei("6.092400010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("2.647667421268661235")
-    ); // 2.866100010000000000 * 0.923787520334526371
+      toWei("2.623672632518558837")
+    ); // 2.866100010000000000 * 0.915415590301944431
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526371")
+      toWei("0.915415590301944431")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.092400010000000000")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("5.618937601672631855")
+      toWei("5.577077951509722157")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("5.618937601672631855"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("5.577077951509722157"));
 
     expect(
       await listaStakeManager.getUserWithdrawalRequests(user.address)
@@ -830,7 +831,7 @@ describe("ListaStakeManager::staking", function () {
       0
     );
     expect(status["_isClaimable"]).to.equals(false);
-    expect(status["_amount"]).to.equals(toWei("1.082500010000000000"));
+    expect(status["_amount"]).to.equals(toWei("1.094175130000000000"));
   });
 
   it("Check states after requestWithdraw", async function () {
@@ -839,7 +840,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("2.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.236200000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(2); // 1 -> 2
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(1);
@@ -869,24 +870,24 @@ describe("ListaStakeManager::staking", function () {
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0); // first in queue
 
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("6.08250001")
+      toWei("6.102300010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.094175130000000000")
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("1.647667421268661235")
+      toWei("1.619416148630081897")
     ); // (totalDelegated - amountToUndelegate) * exchangeRate
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526371")
+      toWei("0.913930475782969929")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.094175133117531476")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("5.618937601672631855")
+      toWei("5.577077951509722157")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("5.618937601672631855"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("5.577077951509722157"));
   });
 
   it("Bot should be able to undelegate from specified validator", async function () {
@@ -908,7 +909,7 @@ describe("ListaStakeManager::staking", function () {
       0
     );
     expect(status["_isClaimable"]).to.equals(false);
-    expect(status["_amount"]).to.equals(toWei("1.082500010000000000"));
+    expect(status["_amount"]).to.equals(toWei("1.094175130000000000"));
   });
 
   it("Check states after undelegateFrom", async function () {
@@ -917,7 +918,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.246100000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(2);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(1);
@@ -927,7 +928,7 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota).to.equals("917499990000000000");
+    expect(pendingUndelegatedQuota).to.equals("905824870000000000");
     const undelegatedQuota = await ethers.provider.getStorageAt(
       listaStakeManager.address,
       219
@@ -937,28 +938,28 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota).to.equals(toWei("0.847575040669052743"));
+    expect(slisBnbToBurnQuota).to.equals(toWei("0.824900344355623323"));
 
     const uuid = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0);
 
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("4.08250001")
+      toWei("4.112200010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608493")
+      toWei("0.790273103247704401")
     ); // totalDelegated * exchangeRate
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.912450172177811660")
     ); // become smaller
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.095950256235062953")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("3.771362561003579112")
+      toWei("3.752177607154098834")
     ); //  -= 2 * exchangeRate
-    expect(await snBnb.totalSupply()).to.equals(toWei("4.618937601672631855")); //   -= 1
+    expect(await snBnb.totalSupply()).to.equals(toWei("4.577077951509722157")); //   -= 1
   });
 
   it("Bot should be able to claim undelegate", async function () {
@@ -973,7 +974,7 @@ describe("ListaStakeManager::staking", function () {
       0
     );
     expect(status["_isClaimable"]).to.equals(true);
-    expect(status["_amount"]).to.equals(toWei("1.082500010000000000"));
+    expect(status["_amount"]).to.equals(toWei("1.094175130000000000"));
   });
 
   it("Check states after claimUndelegated", async function () {
@@ -982,7 +983,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.246100000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(2);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3); // 1 -> 3 ??
@@ -992,38 +993,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota).to.equals(toWei("0.917499990000000000"));
+    expect(pendingUndelegatedQuota).to.equals(toWei("0.905824870000000000"));
     const undelegatedQuota = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota).to.equals(toWei("0.917499990000000000"));
+    expect(undelegatedQuota).to.equals(toWei("0.905824870000000000"));
     const slisBnbToBurnQuota = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota).to.equals(toWei("0.847575040669052743"));
+    expect(slisBnbToBurnQuota).to.equals(toWei("0.824900344355623323"));
 
     const uuid = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0);
 
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("4.08250001")
+      toWei("4.112200010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608493")
+      toWei("0.790273103247704401")
     ); // totalDelegated * exchangeRate
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.912450172177811660")
     ); // become smaller
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.095950256235062953")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("3.771362561003579112")
+      toWei("3.752177607154098834")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("4.618937601672631855"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("4.577077951509722157"));
   });
 
   it("User should be able to claim withdraw", async function () {
@@ -1032,7 +1033,7 @@ describe("ListaStakeManager::staking", function () {
       0
     );
     expect(status["_isClaimable"]).to.equals(true);
-    expect(status["_amount"]).to.equals(toWei("1.082500010000000000"));
+    expect(status["_amount"]).to.equals(toWei("1.094175130000000000"));
 
     const req = await listaStakeManager.getUserWithdrawalRequests(user.address);
     expect(req.length).to.equals(1);
@@ -1041,7 +1042,7 @@ describe("ListaStakeManager::staking", function () {
 
     await expect(listaStakeManager.connect(user).claimWithdraw(0))
       .to.emit(listaStakeManager, "ClaimWithdrawal")
-      .withArgs(user.address, 0, toWei("1.08250001"));
+      .withArgs(user.address, 0, toWei("1.094175130000000000"));
 
     const requests_ = await listaStakeManager.getUserWithdrawalRequests(
       user.address
@@ -1055,7 +1056,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.246100000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(2);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3); // 1 -> 3 ??
@@ -1065,38 +1066,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota).to.equals(toWei("0.917499990000000000"));
+    expect(pendingUndelegatedQuota).to.equals(toWei("0.905824870000000000"));
     const undelegatedQuota = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota).to.equals(toWei("0.917499990000000000"));
+    expect(undelegatedQuota).to.equals(toWei("0.905824870000000000"));
     const slisBnbToBurnQuota = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota).to.equals(toWei("0.847575040669052743"));
+    expect(slisBnbToBurnQuota).to.equals(toWei("0.824900344355623323"));
 
     const uuid = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0);
 
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("4.08250001")
+      toWei("4.112200010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608493")
+      toWei("0.790273103247704401")
     ); // totalDelegated * exchangeRate
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.912450172177811660")
     ); // become smaller
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.095950256235062953")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("3.771362561003579112")
+      toWei("3.752177607154098834")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("4.618937601672631855"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("4.577077951509722157"));
   });
 
   it("Test slisBnbToBurnQuota is not zero", async function () {
@@ -1109,7 +1110,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("8.216400000000000000")
+      toWei("8.256000000000000000")
     ); // += 5
     expect(await listaStakeManager.requestUUID()).to.equals(2);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1118,36 +1119,36 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota).to.equals(toWei("0.917499990000000000"));
+    expect(pendingUndelegatedQuota).to.equals(toWei("0.905824870000000000"));
     const undelegatedQuota = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota).to.equals(toWei("0.917499990000000000"));
+    expect(undelegatedQuota).to.equals(toWei("0.905824870000000000"));
     const slisBnbToBurnQuota = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota).to.equals(toWei("0.847575040669052743"));
+    expect(slisBnbToBurnQuota).to.equals(toWei("0.824900344355623323"));
     const uuid = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid)).to.equals(0);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("9.08250001")
+      toWei("9.122100010000000000")
     ); // += 5
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608492")
+      toWei("0.788375113460175623")
     ); // smaller than before
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.910258751134497300")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.098588724089336200")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("8.390300162676210965")
+      toWei("8.303471362826585336")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); //  += 5 * exchangeRate
+    expect(await snBnb.totalSupply()).to.equals(toWei("9.128371707182208659")); //  += 5 * exchangeRate
 
     console.log("Check states 1 Passed");
 
@@ -1164,7 +1165,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("5.866100010000000000")
     ); //  += 5
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.256000000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(2);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1173,36 +1174,36 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota2).to.equals(toWei("0.917499990000000000"));
+    expect(pendingUndelegatedQuota2).to.equals(toWei("0.905824870000000000"));
     const undelegatedQuota2 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota2).to.equals(toWei("0.917499990000000000"));
+    expect(undelegatedQuota2).to.equals(toWei("0.905824870000000000"));
     const slisBnbToBurnQuota2 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota2).to.equals(toWei("0.847575040669052743"));
+    expect(slisBnbToBurnQuota2).to.equals(toWei("0.824900344355623323"));
     const uuid2 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid2)).to.equals(0);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("9.08250001")
+      toWei("9.122100010000000000")
     ); // += 5
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(0);
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("5.419029982272240346")
+      toWei("5.339668869132662125")
     ); // += 5 * exchangeRate
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.910258751134497300")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.098588724089336200")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("8.390300162676210965")
+      toWei("8.303471362826585336")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); //  += 5 * exchangeRate
+    expect(await snBnb.totalSupply()).to.equals(toWei("9.128371707182208659")); //  += 5 * exchangeRate
 
     console.log("Check states 2 Passed");
 
@@ -1215,7 +1216,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("5.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.265900000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(3); // 2 -> 3
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1224,38 +1225,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota3).to.equals(toWei("0.917499990000000000"));
+    expect(pendingUndelegatedQuota3).to.equals(toWei("0.905824870000000000"));
     const undelegatedQuota3 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota3).to.equals(toWei("0.917499990000000000"));
+    expect(undelegatedQuota3).to.equals(toWei("0.905824870000000000"));
     const slisBnbToBurnQuota3 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota3).to.equals(toWei("0.847575040669052743"));
+    expect(slisBnbToBurnQuota3).to.equals(toWei("0.824900344355623323"));
     const uuid3 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid3)).to.equals(1); // 0 -> 1
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("9.08250001")
+      toWei("9.132000010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
-      toWei("4.495000060000000000") // 5 * 1.082500010000000000 - 0.917499990000000000
+      toWei("4.593080110000000000") // 5 * 1.082500010000000000 - 0.917499990000000000
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("1.266605022941293090") //  -= 4.495000060000000000
+      toWei("1.157521273804550004") //  -= 4.495000060000000000
     );
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.909271939743086502")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.099780996521842060")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("8.390300162676210965")
+      toWei("8.303471362826585336")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("9.128371707182208659"));
 
     console.log("Check states 3 Passed");
 
@@ -1273,7 +1274,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("2.866100010000000000")
     ); // -= 3
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.275800000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(3);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1282,38 +1283,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota4).to.equals(toWei("3.917499990000000000")); //  += 3
+    expect(pendingUndelegatedQuota4).to.equals(toWei("3.905824870000000000")); //  += 3
     const undelegatedQuota4 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota4).to.equals(toWei("0.917499990000000000"));
+    expect(undelegatedQuota4).to.equals(toWei("0.905824870000000000"));
     const slisBnbToBurnQuota4 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota4).to.equals(toWei("3.618937601672631856")); // = real total supply - burned - (totalPooledBnb * exchangeRate) /// += 3 * exchangeRate?
+    expect(slisBnbToBurnQuota4).to.equals(toWei("3.549762141272143745")); // = real total supply - burned - (totalPooledBnb * exchangeRate) /// += 3 * exchangeRate?
     const uuid4 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid4)).to.equals(1);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("6.08250001")
+      toWei("6.141900010000000000")
     ); //  -= 3
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
-      toWei("1.495000060000000000") // -= pendingUndelegatedQuota4
+      toWei("1.593080110000000000") // -= pendingUndelegatedQuota4
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("1.266605022941293089")
+      toWei("1.156267764074829711")
     );
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.908287265638840140")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.100973268954347920")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("5.618937601672631852")
+      toWei("5.578609565910064914")
     ); // sisBnb.totalSupply - burnQuota
-    expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); // Notice: no change since not burned
+    expect(await snBnb.totalSupply()).to.equals(toWei("9.128371707182208659")); // Notice: no change since not burned
 
     console.log("Check states 4 Passed");
 
@@ -1327,14 +1328,14 @@ describe("ListaStakeManager::staking", function () {
       0
     );
     expect(status5["_isClaimable"]).to.equals(false);
-    expect(status5["_amount"]).to.equals(toWei("5.412500050000000000")); // 5 * exchangeRate
+    expect(status5["_amount"]).to.equals(toWei("5.498904980000000000")); // 5 * exchangeRate
 
     expect(await listaStakeManager.totalSnBnbToBurn()).to.equals(0);
     expect(await listaStakeManager.totalDelegated()).to.equals(
       toWei("2.866100010000000000")
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.275800000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(3);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1343,38 +1344,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota5).to.equals(toWei("3.917499990000000000"));
+    expect(pendingUndelegatedQuota5).to.equals(toWei("3.905824870000000000"));
     const undelegatedQuota5 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota5).to.equals(toWei("3.917499990000000000")); //  += 3
+    expect(undelegatedQuota5).to.equals(toWei("3.905824870000000000")); //  += 3
     const slisBnbToBurnQuota5 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota5).to.equals(toWei("3.618937601672631856")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
+    expect(slisBnbToBurnQuota5).to.equals(toWei("3.549762141272143745")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
     const uuid5 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid5)).to.equals(1);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("6.08250001")
+      toWei("6.141900010000000000")
     ); //  -= 3
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
-      toWei("1.495000060000000000")
+      toWei("1.593080110000000000")
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("1.266605022941293089")
+      toWei("1.156267764074829711")
     );
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.908287265638840140")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.100973268954347920")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("5.618937601672631852")
+      toWei("5.578609565910064914")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("9.128371707182208659"));
 
     console.log("Check states 5 Passed");
 
@@ -1392,7 +1393,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("1.866100010000000000") //  -= 1
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.285700000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(3);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1401,38 +1402,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota6).to.equals(toWei("4.917499990000000000")); // += 1
+    expect(pendingUndelegatedQuota6).to.equals(toWei("4.905824870000000000")); // += 1
     const undelegatedQuota6 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota6).to.equals(toWei("3.917499990000000000"));
+    expect(undelegatedQuota6).to.equals(toWei("3.905824870000000000"));
     const slisBnbToBurnQuota6 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota6).to.equals(toWei("4.542725122007158227")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
+    expect(slisBnbToBurnQuota6).to.equals(toWei("4.456587713761790546")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
     const uuid6 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid6)).to.equals(1);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("5.08250001")
+      toWei("5.151800010000000000")
     ); //  -= 1
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
-      toWei("0.495000060000000000")
+      toWei("0.593080110000000000")
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("1.266605022941293089")
+      toWei("1.154406999608212921")
     );
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.906825572489646800")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.102747904709554238")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("4.695150081338105481") // -= 1 * exchangeRate
+      toWei("4.671783993420418113") // -= 1 * exchangeRate
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); // Notice: no change since not burned
+    expect(await snBnb.totalSupply()).to.equals(toWei("9.128371707182208659")); // Notice: no change since not burned
     console.log("Check states 6 Passed");
 
     await expect(
@@ -1450,7 +1451,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000") //  -= 1
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.295600000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(3);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(3);
@@ -1459,38 +1460,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota7).to.equals(toWei("0.504999940000000000")); // += 1 - 5 * 1.082500010000000000
+    expect(pendingUndelegatedQuota7).to.equals(toWei("0.406919890000000000")); // += 1 - 5 * 1.082500010000000000
     const undelegatedQuota7 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota7).to.equals(toWei("3.917499990000000000"));
+    expect(undelegatedQuota7).to.equals(toWei("3.905824870000000000"));
     const slisBnbToBurnQuota7 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota7).to.equals(toWei("0.466512642341684598")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
+    expect(slisBnbToBurnQuota7).to.equals(toWei("0.361674019507873243")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
     const uuid7 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid7)).to.equals(1);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("4.08250001")
+      toWei("4.161700010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
       toWei("0")
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608492")
+      toWei("0.783895258457545281")
     );
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.905086305746082696")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.104867009534165741")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("3.771362561003579110") // -= 1 * exchangeRate
+      toWei("3.766697687674335416") // -= 1 * exchangeRate
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("4.237875203345263708"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("4.128371707182208659"));
 
     console.log("Check states 7 Passed");
 
@@ -1504,7 +1505,7 @@ describe("ListaStakeManager::staking", function () {
       toWei("0.866100010000000000") //  -= 1
     );
     expect(await listaStakeManager.amountToDelegate()).to.equals(
-      toWei("3.216400000000000000")
+      toWei("3.295600000000000000")
     );
     expect(await listaStakeManager.requestUUID()).to.equals(3);
     expect(await listaStakeManager.nextConfirmedRequestUUID()).to.equals(4); // 3 -> 4
@@ -1513,38 +1514,38 @@ describe("ListaStakeManager::staking", function () {
       listaStakeManager.address,
       218
     );
-    expect(pendingUndelegatedQuota8).to.equals(toWei("0.504999940000000000"));
+    expect(pendingUndelegatedQuota8).to.equals(toWei("0.406919890000000000"));
     const undelegatedQuota8 = await readStorageAt(
       listaStakeManager.address,
       219
     );
-    expect(undelegatedQuota8).to.equals(toWei("3.504999940000000000")); // += 5 - 5 * 1.082500010000000000
+    expect(undelegatedQuota8).to.equals(toWei("3.406919890000000000")); // += 5 - 5 * 1.082500010000000000
     const slisBnbToBurnQuota8 = await readStorageAt(
       listaStakeManager.address,
       223
     );
-    expect(slisBnbToBurnQuota8).to.equals(toWei("0.466512642341684598")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
+    expect(slisBnbToBurnQuota8).to.equals(toWei("0.361674019507873243")); // = real total supply - burned - (totalPooledBnb * exchangeRate)
     const uuid8 = await listaStakeManager.requestUUID();
     expect(await listaStakeManager.requestIndexMap(uuid8)).to.equals(1);
     expect(await listaStakeManager.getTotalPooledBnb()).to.equals(
-      toWei("4.08250001")
+      toWei("4.161700010000000000")
     );
     expect(await listaStakeManager.getAmountToUndelegate()).to.equals(
       toWei("0")
     );
     expect(await listaStakeManager.getSlisBnbWithdrawLimit()).to.equals(
-      toWei("0.800092380599608492")
+      toWei("0.783895258457545281")
     );
     expect(await listaStakeManager.convertBnbToSnBnb(toWei("1"))).to.equals(
-      toWei("0.923787520334526370")
+      toWei("0.905086305746082696")
     );
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
-      toWei("1.082500010000000000")
+      toWei("1.104867009534165741")
     );
     expect(await listaStakeManager.totalShares()).to.equals(
-      toWei("3.771362561003579110")
+      toWei("3.766697687674335416")
     );
-    expect(await snBnb.totalSupply()).to.equals(toWei("4.237875203345263708"));
+    expect(await snBnb.totalSupply()).to.equals(toWei("4.128371707182208659"));
 
     console.log("Check states 8 Passed");
   });

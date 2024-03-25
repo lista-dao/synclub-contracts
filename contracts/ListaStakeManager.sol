@@ -125,6 +125,7 @@ contract ListaStakeManager is
         uint256 amount = msg.value;
         require(amount > 0, "Invalid Amount");
 
+        compoundRewards();
         uint256 slisBnbToMint = convertBnbToSnBnb(amount);
         require(slisBnbToMint > 0, "Invalid SlisBnb Amount");
         amountToDelegate += amount;
@@ -254,10 +255,9 @@ contract ListaStakeManager is
      * @dev Allows bot to compound rewards
      */
     function compoundRewards()
-        external
+        public
         override
         whenNotPaused
-        onlyRole(BOT)
     {
         require(totalDelegated > 0, "No funds delegated");
 
@@ -287,6 +287,7 @@ contract ListaStakeManager is
     {
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
+        compoundRewards();
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
         bnbToWithdraw -= (bnbToWithdraw % TEN_DECIMALS);
         require(bnbToWithdraw > 0, "Bnb amount is too small");
@@ -425,6 +426,7 @@ contract ListaStakeManager is
         require(withdrawalQueue.length > 0, "No request received");
         _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
+        compoundRewards();
         _amount = convertSnBnbToBnb(totalSlisBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
@@ -493,6 +495,7 @@ contract ListaStakeManager is
             ++nextUndelegatedRequestIndex;
         }
 
+        compoundRewards();
         // sisBnbToBurnQuota = real total supply - total supply to burn - (total pooled bnb * exchange rate)
         slisBnbToBurnQuota = ISLisBNB(slisBnb).totalSupply() - totalSnBnbToBurn_ - convertBnbToSnBnb(getTotalPooledBnb() - _amount);
         totalDelegated -= _amount;
