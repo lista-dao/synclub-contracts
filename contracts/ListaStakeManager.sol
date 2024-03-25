@@ -417,6 +417,7 @@ contract ListaStakeManager is
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
 
         // old logic, handle history data
+	require(withdrawalQueue.length > 0, "No request received");
         _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         _amount = convertSnBnbToBnb(totalSlisBnbToBurn_);
@@ -512,7 +513,7 @@ contract ListaStakeManager is
         // Bot only can claim after undelegated all old requests
         require(totalSnBnbToBurn == 0, "Not able to claim yet");
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
-        require(undelegatedAmount > 0, "Nothing to claim");
+        require(undelegatedAmount > 0 && withdrawalQueue.length > 0, "Nothing to claim");
         undelegatedQuota += undelegatedAmount;
 
         uint256 oldLastUUID = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
