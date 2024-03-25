@@ -325,10 +325,15 @@ contract ListaStakeManager is
 
         WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
         uint256 amount;
-        if (request.uuid != 0) {
+
+        // 1. queue.length == 0 => old logic
+        // 2. queue.length > 0 && uuid < queue[0].uuid => old logic
+        // 2. queue.length > 0 && uuid >= queue[0].uuid => new logic
+
+        if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
             // new logic
+            UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
             require(uuid < nextConfirmedRequestUUID, "Not able to claim yet");
             amount = request.amount;
         } else {
@@ -417,7 +422,7 @@ contract ListaStakeManager is
         require(relayFeeReceived == relayFee, "Insufficient RelayFee");
 
         // old logic, handle history data
-	require(withdrawalQueue.length > 0, "No request received");
+        require(withdrawalQueue.length > 0, "No request received");
         _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         _amount = convertSnBnbToBnb(totalSlisBnbToBurn_);
