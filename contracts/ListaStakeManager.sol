@@ -839,9 +839,7 @@ contract ListaStakeManager is
             uint256 amount = req.amount;
             _amount += amount;
         }
-        if(_amount > pendingUndelegatedQuota) {
-            _amount -= pendingUndelegatedQuota;
-        }
+         _amount -= pendingUndelegatedQuota;
     }
 
     /**
