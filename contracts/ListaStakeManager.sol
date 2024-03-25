@@ -835,6 +835,9 @@ contract ListaStakeManager is
      * @return _amount Bnb amount to be undelegated by bot
      */
     function getAmountToUndelegate() public view override returns (uint256 _amount) {
+        if (nextUndelegatedRequestIndex == withdrawalQueue.length) {
+            return 0;
+        }
         for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
             UserRequest storage req = withdrawalQueue[i];
             uint256 amount = req.amount;
@@ -846,7 +849,7 @@ contract ListaStakeManager is
     /**
     * @dev Returns the total supply of slisBNB
     */
-    function totalSupply() public view override returns (uint256) {
+    function totalShares() public view override returns (uint256) {
         return ISLisBNB(slisBnb).totalSupply() - slisBnbToBurnQuota;
     }
 
@@ -859,13 +862,13 @@ contract ListaStakeManager is
         override
         returns (uint256)
     {
-        uint256 totalShares = totalSupply();
-        totalShares = totalShares == 0 ? 1 : totalShares;
+        uint256 _totalShares = totalShares();
+        _totalShares = _totalShares == 0 ? 1 : _totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
-        uint256 amountInSlisBnb = (_amount * totalShares) / totalPooledBnb;
+        uint256 amountInSlisBnb = (_amount * _totalShares) / totalPooledBnb;
 
         return amountInSlisBnb;
     }
@@ -879,13 +882,13 @@ contract ListaStakeManager is
         override
         returns (uint256)
     {
-        uint256 totalShares = totalSupply();
-        totalShares = totalShares == 0 ? 1 : totalShares;
+        uint256 _totalShares = totalShares();
+        _totalShares = _totalShares == 0 ? 1 : _totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
-        uint256 amountInBnb = (_amountInSlisBnb * totalPooledBnb) / totalShares;
+        uint256 amountInBnb = (_amountInSlisBnb * totalPooledBnb) / _totalShares;
 
         return amountInBnb;
     }

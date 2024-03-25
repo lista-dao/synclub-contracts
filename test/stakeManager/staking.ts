@@ -9,7 +9,7 @@ import { impersonateAccount, toBytes32, toWei, readStorageAt } from "../helper";
 import { accountFixture, deployFixture } from "../fixture";
 import { getContractAddress } from "ethers/lib/utils";
 
-describe("SnStakeManager::staking", function () {
+describe("ListaStakeManager::staking", function () {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   const RELAYER_FEE = "2000000000000000";
   const NATIVE_STAKING = "0x0000000000000000000000000000000000002001";
@@ -670,7 +670,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(toWei("1"));
+    expect(await listaStakeManager.totalShares()).to.equals(toWei("1"));
     expect(await snBnb.totalSupply()).to.equals(toWei("1"));
 
     expect(
@@ -732,7 +732,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("5.618937601672631855")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("5.618937601672631855")); // 1 + 5 * exchange rate
@@ -803,7 +803,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("5.618937601672631855")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("5.618937601672631855"));
@@ -883,7 +883,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("5.618937601672631855")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("5.618937601672631855"));
@@ -955,7 +955,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("3.771362561003579112")
     ); //  -= 2 * exchangeRate
     expect(await snBnb.totalSupply()).to.equals(toWei("4.618937601672631855")); //   -= 1
@@ -1020,7 +1020,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("3.771362561003579112")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("4.618937601672631855"));
@@ -1093,7 +1093,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("3.771362561003579112")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("4.618937601672631855"));
@@ -1144,7 +1144,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("8.390300162676210965")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); //  += 5 * exchangeRate
@@ -1199,7 +1199,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("8.390300162676210965")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); //  += 5 * exchangeRate
@@ -1252,7 +1252,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("8.390300162676210965")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708"));
@@ -1310,7 +1310,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("5.618937601672631852")
     ); // sisBnb.totalSupply - burnQuota
     expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); // Notice: no change since not burned
@@ -1371,7 +1371,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("5.618937601672631852")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708"));
@@ -1429,7 +1429,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("4.695150081338105481") // -= 1 * exchangeRate
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("9.237875203345263708")); // Notice: no change since not burned
@@ -1487,7 +1487,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("3.771362561003579110") // -= 1 * exchangeRate
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("4.237875203345263708"));
@@ -1541,7 +1541,7 @@ describe("SnStakeManager::staking", function () {
     expect(await listaStakeManager.convertSnBnbToBnb(toWei("1"))).to.equals(
       toWei("1.082500010000000000")
     );
-    expect(await listaStakeManager.totalSupply()).to.equals(
+    expect(await listaStakeManager.totalShares()).to.equals(
       toWei("3.771362561003579110")
     );
     expect(await snBnb.totalSupply()).to.equals(toWei("4.237875203345263708"));

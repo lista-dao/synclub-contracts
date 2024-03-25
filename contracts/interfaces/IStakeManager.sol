@@ -143,7 +143,7 @@ interface IStakeManager {
 
     function getDelegated(address validator) external view returns (uint256);
 
-    function totalSupply() external view returns (uint256);
+    function totalShares() external view returns (uint256);
 
     function convertBnbToSnBnb(uint256 _amount) external view returns (uint256);
 
