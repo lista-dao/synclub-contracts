@@ -186,6 +186,7 @@ contract ListaStakeManager is
 
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
+        totalReserveAmount -= reserveAmount;
 
         // delegate through native staking contract
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
@@ -569,6 +570,7 @@ contract ListaStakeManager is
             require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
             amountToDelegate += failedAmount - reserveAmount;
             totalDelegated -= failedAmount -reserveAmount;
+            totalReserveAmount += reserveAmount;
         } else {
             amountToDelegate += failedAmount;
             totalDelegated -= failedAmount;

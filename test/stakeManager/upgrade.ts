@@ -9,7 +9,7 @@ import { impersonateAccount, toBytes32, toWei, readStorageAt } from "../helper";
 import { accountFixture, deployFixture } from "../fixture";
 import { getContractAddress } from "ethers/lib/utils";
 
-describe("SnStakeManager::upgrade", function () {
+describe("StakeManager::upgrade", function () {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   const RELAYER_FEE = "2000000000000000";
   const NATIVE_STAKING = "0x0000000000000000000000000000000000002001";
