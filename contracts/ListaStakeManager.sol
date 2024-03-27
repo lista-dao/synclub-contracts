@@ -329,7 +329,7 @@ contract ListaStakeManager is
 
         // 1. queue.length == 0 => old logic
         // 2. queue.length > 0 && uuid < queue[0].uuid => old logic
-        // 2. queue.length > 0 && uuid >= queue[0].uuid => new logic
+        // 3. queue.length > 0 && uuid >= queue[0].uuid => new logic
 
         if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
             // new logic
@@ -368,27 +368,36 @@ contract ListaStakeManager is
             uint256 idx_ = count - 1;
             WithdrawalRequest storage withdrawRequest = userRequests[idx_];
             uint256 uuid = withdrawRequest.uuid;
-            UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
 
-            if ((request.uuid == 0 && uuidToBotUndelegateRequestMap[uuid].endTime == 0)
-                || (request.uuid != 0 && uuid >= nextConfirmedRequestUUID)) {
-                count -= 1;
-                continue; // Skip requests which are Not claimable yet
-            }
+            // 1. queue.length == 0 => old logic
+            // 2. queue.length > 0 && uuid < queue[0].uuid => old logic
+            // 3. queue.length > 0 && uuid >= queue[0].uuid => new logic
 
-            if (request.uuid != 0) {
-                amount += request.amount;
+            if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
+                // new logic
+                UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
+                if (request.uuid >= nextConfirmedRequestUUID) {
+                    count -= 1;
+                    continue; // Skip new version User requests which are Not claimable yet
+                } else {
+                    amount += request.amount;
+                }
             } else {
                 // old logic
-                uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
-                BotUndelegateRequest
-                    storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+                if (uuidToBotUndelegateRequestMap[uuid].endTime == 0) {
+                    count -= 1;
+                    continue; // Skip old version User requests which are Not claimable yet
+                } else {
+                    uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
+                    BotUndelegateRequest
+                        storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
 
-                uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
-                uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
-                uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
-                    totalSlisBnbToBurn_;
-                amount += _amount;
+                    uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+                    uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
+                    uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
+                        totalSlisBnbToBurn_;
+                    amount += _amount;
+                }
             }
 
             count -= 1;
