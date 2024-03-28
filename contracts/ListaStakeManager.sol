@@ -125,7 +125,6 @@ contract ListaStakeManager is
         uint256 amount = msg.value;
         require(amount > 0, "Invalid Amount");
 
-        compoundRewards();
         uint256 slisBnbToMint = convertBnbToSnBnb(amount);
         require(slisBnbToMint > 0, "Invalid SlisBnb Amount");
         amountToDelegate += amount;
@@ -187,6 +186,7 @@ contract ListaStakeManager is
 
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
+        totalReserveAmount -= reserveAmount;
 
         // delegate through native staking contract
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
@@ -255,9 +255,10 @@ contract ListaStakeManager is
      * @dev Allows bot to compound rewards
      */
     function compoundRewards()
-        public
+        external
         override
         whenNotPaused
+        onlyRole(BOT)
     {
         require(totalDelegated > 0, "No funds delegated");
 
@@ -287,7 +288,6 @@ contract ListaStakeManager is
     {
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
-        compoundRewards();
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
         bnbToWithdraw -= (bnbToWithdraw % TEN_DECIMALS);
         require(bnbToWithdraw > 0, "Bnb amount is too small");
@@ -330,7 +330,7 @@ contract ListaStakeManager is
 
         // 1. queue.length == 0 => old logic
         // 2. queue.length > 0 && uuid < queue[0].uuid => old logic
-        // 2. queue.length > 0 && uuid >= queue[0].uuid => new logic
+        // 3. queue.length > 0 && uuid >= queue[0].uuid => new logic
 
         if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
             // new logic
@@ -369,27 +369,36 @@ contract ListaStakeManager is
             uint256 idx_ = count - 1;
             WithdrawalRequest storage withdrawRequest = userRequests[idx_];
             uint256 uuid = withdrawRequest.uuid;
-            UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
 
-            if ((request.uuid == 0 && uuidToBotUndelegateRequestMap[uuid].endTime == 0)
-                || (request.uuid != 0 && uuid >= nextConfirmedRequestUUID)) {
-                count -= 1;
-                continue; // Skip requests which are Not claimable yet
-            }
+            // 1. queue.length == 0 => old logic
+            // 2. queue.length > 0 && uuid < queue[0].uuid => old logic
+            // 3. queue.length > 0 && uuid >= queue[0].uuid => new logic
 
-            if (request.uuid != 0) {
-                amount += request.amount;
+            if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
+                // new logic
+                UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
+                if (request.uuid >= nextConfirmedRequestUUID) {
+                    count -= 1;
+                    continue; // Skip new version User requests which are Not claimable yet
+                } else {
+                    amount += request.amount;
+                }
             } else {
                 // old logic
-                uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
-                BotUndelegateRequest
-                    storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+                if (uuidToBotUndelegateRequestMap[uuid].endTime == 0) {
+                    count -= 1;
+                    continue; // Skip old version User requests which are Not claimable yet
+                } else {
+                    uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
+                    BotUndelegateRequest
+                        storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
 
-                uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
-                uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
-                uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
-                    totalSlisBnbToBurn_;
-                amount += _amount;
+                    uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+                    uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
+                    uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
+                        totalSlisBnbToBurn_;
+                    amount += _amount;
+                }
             }
 
             count -= 1;
@@ -426,7 +435,6 @@ contract ListaStakeManager is
         require(withdrawalQueue.length > 0, "No request received");
         _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
-        compoundRewards();
         _amount = convertSnBnbToBnb(totalSlisBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
@@ -495,7 +503,6 @@ contract ListaStakeManager is
             ++nextUndelegatedRequestIndex;
         }
 
-        compoundRewards();
         // sisBnbToBurnQuota = real total supply - total supply to burn - (total pooled bnb * exchange rate)
         slisBnbToBurnQuota = ISLisBNB(slisBnb).totalSupply() - totalSnBnbToBurn_ - convertBnbToSnBnb(getTotalPooledBnb() - _amount);
         totalDelegated -= _amount;
@@ -521,10 +528,15 @@ contract ListaStakeManager is
         // Bot only can claim after undelegated all old requests
         require(totalSnBnbToBurn == 0, "Not able to claim yet");
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
-        require(undelegatedAmount > 0 && withdrawalQueue.length > 0, "Nothing to claim");
+        require(undelegatedAmount > 0, "Nothing to claim");
         undelegatedQuota += undelegatedAmount;
 
-        uint256 oldLastUUID = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
+        uint256 oldLastUUID = requestUUID;
+
+        if (withdrawalQueue.length != 0) {
+            oldLastUUID = withdrawalQueue[0].uuid - 1;
+        }
+
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
@@ -563,6 +575,7 @@ contract ListaStakeManager is
             require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
             amountToDelegate += failedAmount - reserveAmount;
             totalDelegated -= failedAmount -reserveAmount;
+            totalReserveAmount += reserveAmount;
         } else {
             amountToDelegate += failedAmount;
             totalDelegated -= failedAmount;

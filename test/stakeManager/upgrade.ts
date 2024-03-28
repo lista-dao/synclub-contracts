@@ -9,7 +9,7 @@ import { impersonateAccount, toBytes32, toWei, readStorageAt } from "../helper";
 import { accountFixture, deployFixture } from "../fixture";
 import { getContractAddress } from "ethers/lib/utils";
 
-describe("SnStakeManager::upgrade", function () {
+describe("StakeManager::upgrade", function () {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
   const RELAYER_FEE = "2000000000000000";
   const NATIVE_STAKING = "0x0000000000000000000000000000000000002001";
@@ -22,6 +22,7 @@ describe("SnStakeManager::upgrade", function () {
   let manager: SignerWithAddress;
   let bot: SignerWithAddress;
   let user: SignerWithAddress;
+  let user2: SignerWithAddress;
   let nativeStakingSigner: SignerWithAddress;
   let validator: SignerWithAddress;
 
@@ -49,6 +50,7 @@ describe("SnStakeManager::upgrade", function () {
     bot = this.addrs[3];
     validator = this.addrs[5];
     user = this.addrs[6];
+    user2 = this.addrs[7];
 
     stakeManager = await upgrades.deployProxy(
       await ethers.getContractFactory("SnStakeManager"),
@@ -72,7 +74,6 @@ describe("SnStakeManager::upgrade", function () {
       mockNativeStaking.mock.delegate.returns(),
       mockNativeStaking.mock.redelegate.returns(),
       mockNativeStaking.mock.undelegate.returns(),
-      mockNativeStaking.mock.claimReward.returns(0),
     ]);
   });
 
@@ -80,14 +81,21 @@ describe("SnStakeManager::upgrade", function () {
     await snBnb
       .connect(user)
       .approve(stakeManager.address, ethers.constants.MaxUint256);
+    await snBnb
+      .connect(user2)
+      .approve(stakeManager.address, ethers.constants.MaxUint256);
+
     await stakeManager.connect(user).deposit({ value: toWei("2") });
-    await stakeManager.connect(user).requestWithdraw(toWei("1")); // 1st request
+    await stakeManager.connect(user2).deposit({ value: toWei("5") });
+    await stakeManager.connect(user).requestWithdraw(toWei("1")); // 1st request of user1
+    await stakeManager.connect(user2).requestWithdraw(toWei("1.5"));
+    await stakeManager.connect(user2).requestWithdraw(toWei("2"));
     await stakeManager.connect(bot).delegate({ value: RELAYER_FEE });
     await stakeManager.connect(bot).undelegate({ value: RELAYER_FEE });
-    await mockNativeStaking.mock.claimUndelegated.returns(toWei("1"));
+    await mockNativeStaking.mock.claimUndelegated.returns(toWei("4.5"));
     await nativeStakingSigner.sendTransaction({
       to: stakeManager.address,
-      value: toWei("1"),
+      value: toWei("4.5"),
     });
 
     await stakeManager.connect(bot).claimUndelegated();
@@ -111,7 +119,8 @@ describe("SnStakeManager::upgrade", function () {
     );
     await listaStakeManager.deployed();
 
-    await listaStakeManager.connect(user).requestWithdraw(toWei("1")); // 2nd request
+    await listaStakeManager.connect(user).requestWithdraw(toWei("1")); // 2nd request of user1
+    await listaStakeManager.connect(user2).requestWithdraw(toWei("1.5")); // 3rd request of user2
     await listaStakeManager
       .connect(bot)
       .undelegateFrom(validator.address, toWei("1"), { value: RELAYER_FEE });
@@ -125,8 +134,12 @@ describe("SnStakeManager::upgrade", function () {
     expect(await listaStakeManager.connect(user).claimWithdraw(0))
       .to.emit(listaStakeManager, "ClaimWithdrawal")
       .withArgs(user.address, 0, toWei("1"));
-    expect(await listaStakeManager.connect(user).claimWithdraw(0)) // both requests should be claimed successfully
+    expect(await listaStakeManager.connect(user).claimWithdraw(0))
       .to.emit(listaStakeManager, "ClaimWithdrawal")
       .withArgs(user.address, 0, toWei("1"));
+
+    expect(await listaStakeManager.connect(user2).claimAllWithdrawals())
+      .to.emit(listaStakeManager, "ClaimAllWithdrawals")
+      .withArgs(user.address, toWei("5")); // 3.5(before upgrade) + 1.5(after upgrade)
   });
 });
