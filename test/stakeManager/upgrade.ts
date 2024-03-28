@@ -74,7 +74,6 @@ describe("StakeManager::upgrade", function () {
       mockNativeStaking.mock.delegate.returns(),
       mockNativeStaking.mock.redelegate.returns(),
       mockNativeStaking.mock.undelegate.returns(),
-      mockNativeStaking.mock.claimReward.returns(0),
     ]);
   });
 
