@@ -796,11 +796,11 @@ contract ListaStakeManager is
 
         WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        _isClaimable = uuid < nextConfirmedRequestUUID;
 
-        UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
-        if (request.uuid != 0) {
+        if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
             // new logic
+            UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
+            _isClaimable = uuid < nextConfirmedRequestUUID;
             _amount = request.amount;
         } else {
             // old logic
