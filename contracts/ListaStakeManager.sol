@@ -252,13 +252,12 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows bot to compound rewards
+     * @dev Compound staking rewards
      */
     function compoundRewards()
-        external
+        public
         override
         whenNotPaused
-        onlyRole(BOT)
     {
         require(totalDelegated > 0, "No funds delegated");
 
@@ -661,7 +660,7 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(_synFee <= TEN_DECIMALS, "_synFee must not exceed 10000 (100%)");
-
+        compoundRewards();
         synFee = _synFee;
 
         emit SetSynFee(_synFee);
