@@ -252,13 +252,12 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows bot to compound rewards
+     * @dev Compound staking rewards
      */
     function compoundRewards()
-        external
+        public
         override
         whenNotPaused
-        onlyRole(BOT)
     {
         require(totalDelegated > 0, "No funds delegated");
 
@@ -661,7 +660,7 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(_synFee <= TEN_DECIMALS, "_synFee must not exceed 10000 (100%)");
-
+        compoundRewards();
         synFee = _synFee;
 
         emit SetSynFee(_synFee);
@@ -796,11 +795,11 @@ contract ListaStakeManager is
 
         WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        _isClaimable = uuid < nextConfirmedRequestUUID;
 
-        UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
-        if (request.uuid != 0) {
+        if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
             // new logic
+            UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
+            _isClaimable = uuid < nextConfirmedRequestUUID;
             _amount = request.amount;
         } else {
             // old logic
