@@ -451,6 +451,7 @@ contract ListaStakeManager is
 
         totalDelegated -= _amount;
         totalSnBnbToBurn = 0;
+        totalReserveAmount += reserveAmount;
 
         ISLisBNB(slisBnb).burn(address(this), totalSlisBnbToBurn_);
 
