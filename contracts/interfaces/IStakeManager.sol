@@ -52,6 +52,11 @@ interface IStakeManager {
         payable
         returns (uint256 _uuid, uint256 _amount);
 
+    function undelegateAll(uint256 _allAmount)
+        external
+        payable
+        returns (uint256 _uuid, uint256 _amount);
+
     function claimUndelegated() external returns (uint256, uint256);
 
     function claimFailedDelegation(bool) external returns (uint256);
@@ -130,6 +135,7 @@ interface IStakeManager {
         uint256 _amount
     );
     event Undelegate(uint256 _uuid, uint256 _amount);
+    event UndelegateAll(uint256 _allAmount, uint256 _amount);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
     event ProposeManager(address indexed _address);
