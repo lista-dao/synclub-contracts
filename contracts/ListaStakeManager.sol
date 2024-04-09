@@ -12,6 +12,8 @@ import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStaking} from "./interfaces/INativeStaking.sol";
 
+/* import "hardhat/console.sol"; */
+
 /**
  * @title Stake Manager Contract
  * @dev Handles Staking of BNB on BSC
@@ -56,14 +58,14 @@ contract ListaStakeManager is
 
     mapping(address => bool) public validators;
 
-    uint256 private pendingUndelegatedQuota; // the amount Bnb to be used in the next `undelegateFrom`
+//    uint256 private pendingUndelegatedQuota; // the amount Bnb to be used in the next `undelegateFrom`;; to be removed??
     uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
     uint256 public nextUndelegatedRequestIndex; // the index of next request to be delegated in queue
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
 
-    uint256 private slisBnbToBurnQuota; // the amount of slisBnb has been undelgated but not burned yet
+//    uint256 private slisBnbToBurnQuota; // the amount of slisBnb has been undelgated but not burned yet
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -464,7 +466,7 @@ contract ListaStakeManager is
     /**
      * @dev Bot uses this function to get amount of BNB to withdraw
      * @param _validator - Validator to undelegate from
-     * @param _amt - Amount of BNB to undelegate
+     * @param _amt - Amount of BNB to undelegate, the amount must cover complete requests in queue
      * @return _nextUndelegatedRequestIndex - the next request index to be undelegated
      * @return _amount - Amount of funds required to Unstake
      */
@@ -484,12 +486,40 @@ contract ListaStakeManager is
         // old requests need to be processed by undelegate first
         require(totalSnBnbToBurn == 0, "Not able to undelegate yet");
 
-        _amount = _amt - _amt % TEN_DECIMALS;
+        /* console.log("_amt: %d", _amt); */
+        require(_amt % TEN_DECIMALS == 0, "Invalid Amount");
         require(
-            _amount >= IStaking(NATIVE_STAKING).getMinDelegation(),
+            _amt >= IStaking(NATIVE_STAKING).getMinDelegation(),
             "Insufficient Withdraw Amount"
         );
 
+        uint256 reminder = _amt;
+        uint256 totalSnBnbToBurn_ = 0;
+        for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
+            if (reminder == 0) {
+                break;
+            }
+            UserRequest storage req = withdrawalQueue[i];
+            require(req.amount <= reminder, "Amount should cover complete request");
+            reminder -= req.amount;
+            totalSnBnbToBurn_ += req.amountInSlisBnb;
+            ++nextUndelegatedRequestIndex;
+        }
+
+        totalDelegated -= _amt;
+
+        /* console.log("reminder: %d, totalSnBnbToBurn_: %d", reminder, totalSnBnbToBurn_); */
+
+        require(reminder == 0 && totalSnBnbToBurn_ > 0, "Invalid Amount");
+        ISLisBNB(slisBnb).burn(address(this), totalSnBnbToBurn_);
+
+        // undelegate through native staking contract
+        IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amt);
+        _nextUndelegatedRequestIndex = nextUndelegatedRequestIndex;
+
+        emit Undelegate(nextUndelegatedRequestIndex, _amt);
+
+/*
         // calculate the amount of SnBnb to burn
         uint256 totalSnBnbToBurn_ = 0;
         pendingUndelegatedQuota += _amount;
@@ -516,6 +546,7 @@ contract ListaStakeManager is
         _nextUndelegatedRequestIndex = nextUndelegatedRequestIndex;
 
         emit Undelegate(nextUndelegatedRequestIndex, _amount);
+*/
     }
 
     function claimUndelegated()
@@ -864,14 +895,7 @@ contract ListaStakeManager is
             uint256 amount = req.amount;
             _amount += amount;
         }
-         _amount -= pendingUndelegatedQuota;
-    }
-
-    /**
-    * @dev Returns the total supply of slisBNB
-    */
-    function totalShares() public view override returns (uint256) {
-        return ISLisBNB(slisBnb).totalSupply() - slisBnbToBurnQuota;
+	//         _amount -= pendingUndelegatedQuota;
     }
 
     /**
@@ -883,13 +907,13 @@ contract ListaStakeManager is
         override
         returns (uint256)
     {
-        uint256 _totalShares = totalShares();
-        _totalShares = _totalShares == 0 ? 1 : _totalShares;
+        uint256 totalShares = ISLisBNB(slisBnb).totalSupply();
+        totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
-        uint256 amountInSlisBnb = (_amount * _totalShares) / totalPooledBnb;
+        uint256 amountInSlisBnb = (_amount * totalShares) / totalPooledBnb;
 
         return amountInSlisBnb;
     }
@@ -903,13 +927,13 @@ contract ListaStakeManager is
         override
         returns (uint256)
     {
-        uint256 _totalShares = totalShares();
-        _totalShares = _totalShares == 0 ? 1 : _totalShares;
+        uint256 totalShares = ISLisBNB(slisBnb).totalSupply();
+        totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
-        uint256 amountInBnb = (_amountInSlisBnb * totalPooledBnb) / _totalShares;
+        uint256 amountInBnb = (_amountInSlisBnb * totalPooledBnb) / totalShares;
 
         return amountInBnb;
     }
