@@ -59,6 +59,8 @@ interface IStakeManager {
 
     function claimUndelegated() external returns (uint256, uint256);
 
+    function claimUndelegatedAll() external returns (uint256 _uuid, uint256 _amount);
+
     function claimFailedDelegation(bool) external returns (uint256);
 
     function compoundRewards() external;

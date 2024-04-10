@@ -343,7 +343,13 @@ contract SnStakeManager is
      * @return _uuid - unique id against which this Undelegation event was logged
      * @return _amount - Amount of funds requested to Unstake
      */
-    function undelegateAll() external payable override onlyRole(BOT) returns (uint256 _uuid, uint256 _amount){
+    function undelegateAll()
+        external
+        payable
+        override
+        onlyRole(BOT)
+        returns (uint256 _uuid, uint256 _amount)
+    {
         uint256 _allAmount = IStaking(NATIVE_STAKING).getDelegated(address(this), bcValidator);
 
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
@@ -382,6 +388,7 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
+        revert("Not supported");
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         require(undelegatedAmount > 0, "Nothing to undelegate");
         for (uint256 i = confirmedUndelegatedUUID; i <= nextUndelegateUUID - 1; i++) {
@@ -395,6 +402,40 @@ contract SnStakeManager is
 
         emit ClaimUndelegated(_uuid, _amount);
     }
+
+    /**
+     * @dev Bot uses this function to claim all undelegated funds from Beacon Chain for BSC Feynman upgrade
+     * @return _uuid - the confirmed undelegated uuid
+     * @return _amount - Amount of funds claimed
+     */
+    function claimUndelegatedAll()
+        external
+        override
+        onlyRole(BOT)
+        returns (uint256 _uuid, uint256 _amount)
+    {
+        // undelegatedAmount = requested undelegated amount + remaining amount
+        uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
+        require(undelegatedAmount > 0, "Nothing to undelegate");
+
+        uint256 remainingAmount = undelegatedAmount;
+
+        for (uint256 i = confirmedUndelegatedUUID; i <= nextUndelegateUUID - 1; i++) {
+            BotUndelegateRequest
+                storage botUndelegateRequest = uuidToBotUndelegateRequestMap[i];
+            botUndelegateRequest.endTime = block.timestamp;
+            confirmedUndelegatedUUID++;
+            require(remainingAmount >= botUndelegateRequest.amount, "Wrong remaining amount");
+            remainingAmount -= botUndelegateRequest.amount;
+        }
+        _uuid = confirmedUndelegatedUUID;
+        amountToDelegate += remainingAmount;
+        totalDelegated -= remainingAmount; // totalDelegated should be zero after this
+        _amount = undelegatedAmount;
+
+        emit ClaimUndelegated(_uuid, undelegatedAmount);
+    }
+
 
     function claimFailedDelegation(bool withReserve)
         external
