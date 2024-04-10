@@ -340,12 +340,11 @@ contract SnStakeManager is
 
     /**
      * @dev Bot uses this function to undelegate all funds from Beacon Chain for BSC Feynman upgrade
-     * @param _allAmount - Amount of funds to undelegate
      * @return _uuid - unique id against which this Undelegation event was logged
-     * @return _amount - Amount of funds required to Unstake
+     * @return _amount - Amount of funds requested to Unstake
      */
-    function undelegateAll(uint256 _allAmount) external payable override onlyRole(BOT) returns (uint256 _uuid, uint256 _amount){
-        require(_allAmount == IStaking(NATIVE_STAKING).getDelegated(address(this), bcValidator), "Should undelegate all funds");
+    function undelegateAll() external payable override onlyRole(BOT) returns (uint256 _uuid, uint256 _amount){
+        uint256 _allAmount = IStaking(NATIVE_STAKING).getDelegated(address(this), bcValidator);
 
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;

@@ -52,7 +52,7 @@ interface IStakeManager {
         payable
         returns (uint256 _uuid, uint256 _amount);
 
-    function undelegateAll(uint256 _allAmount)
+    function undelegateAll()
         external
         payable
         returns (uint256 _uuid, uint256 _amount);
