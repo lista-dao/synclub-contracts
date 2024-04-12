@@ -1,7 +1,7 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import {IStaking} from "../interfaces/INativeStaking.sol";
+import {IStaking} from "../oldContracts/interfaces/INativeStaking.sol";
 
 contract MockNativeStaking is IStaking {
   uint256 public constant FEE = 16000000000000000;
@@ -84,6 +84,6 @@ contract MockNativeStaking is IStaking {
       return 100000000000000000;
   }
 
-  function getRequestInFly(address delegator) external view override returns(uint256[3] memory) {      
+  function getRequestInFly(address delegator) external view override returns(uint256[3] memory) {
   }
 }

@@ -10,7 +10,8 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
-import {IStaking} from "./interfaces/INativeStaking.sol";
+import {IStakeHub} from "./interfaces/IStakeHub.sol";
+import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 
 /* import "hardhat/console.sol"; */
 
@@ -54,18 +55,16 @@ contract ListaStakeManager is
     address public revenuePool;
     address public redirectAddress;
 
-    address private constant NATIVE_STAKING = 0x0000000000000000000000000000000000002001;
+    address private constant STAKE_HUB = 0x0000000000000000000000000000000000002002;
 
     mapping(address => bool) public validators;
+    bool internal delegateVotePower;
 
-//    uint256 private pendingUndelegatedQuota; // the amount Bnb to be used in the next `undelegateFrom`;; to be removed??
     uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
     uint256 public nextUndelegatedRequestIndex; // the index of next request to be delegated in queue
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
-
-//    uint256 private slisBnbToBurnQuota; // the amount of slisBnb has been undelgated but not burned yet
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -149,6 +148,8 @@ contract ListaStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
+        revert("deprecated");
+        /*
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -163,118 +164,53 @@ contract ListaStakeManager is
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value}(bcValidator, _amount);
 
         emit Delegate(_amount);
+       */
     }
 
     /**
-     * @dev Allows bot to delegate users' funds + reserved BNB to native staking contract
-     * @return _amount - Amount of funds transferred for staking
-     * @notice The amount should be greater than minimum delegation on native staking contract
+     * @dev Allows bot to delegate users' funds to BSC validator
+     * @param _validator - Operator address of the BSC validator to delegate to
+     * @param _amount - Amount of BNB to delegate
+     * @notice The amount should be greater than minimum delegation
      */
-    function delegateWithReserve()
+    function delegateTo(address _validator, uint256 _amount)
         external
-        payable
         override
         whenNotPaused
         onlyRole(BOT)
-        returns (uint256 _amount)
     {
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-        _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
-
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(totalReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
-        require(_amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
-
-        amountToDelegate = amountToDelegate - _amount;
-        totalDelegated += _amount;
-        totalReserveAmount -= reserveAmount;
-
-        // delegate through native staking contract
-        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
-
-        emit Delegate(_amount);
-        emit DelegateReserve(reserveAmount);
-    }
-
-    /**
-     * @dev Allows bot to delegate users' funds to native staking contract without reserved BNB
-     * @param _validator - Address of the validator to delegate to
-     * @param _amt - Amount of BNB to delegate
-     * @notice The amount should be greater than minimum delegation on native staking contract
-     */
-    function delegateTo(address _validator, uint256 _amt)
-        external
-        payable
-        override
-        whenNotPaused
-        onlyRole(BOT)
-        returns (uint256 _amount)
-    {
-        require(amountToDelegate >= _amt, "Not enough BNB to delegate");
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-        _amount = _amt - (_amt % TEN_DECIMALS);
+        require(amountToDelegate >= _amount, "Not enough BNB to delegate");
 
         require(validators[_validator] == true, "Inactive validator");
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(_amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
+        require(_amount >= IStakeHub(STAKE_HUB).minDelegationBNBChange(), "Insufficient Delegation Amount");
 
-        amountToDelegate = amountToDelegate - _amount;
+        amountToDelegate -= _amount;
         totalDelegated += _amount;
 
-        // delegate through native staking contract
-        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value}(_validator, _amount);
+        // delegate through StakeHub contract
+        IStakeHub(STAKE_HUB).delegate{value: _amount}(_validator, delegateVotePower);
 
-        emit DelegateTo(_validator, _amount);
+        emit DelegateTo(_validator, _amount, delegateVotePower);
     }
 
-    function redelegate(address srcValidator, address dstValidator, uint256 amount)
+    /**
+     * @param srcValidator the operator address of the validator to be redelegated from
+     * @param dstValidator the operator address of the validator to be redelegated to
+     * @param shares the shares to be redelegated
+     */
+    function redelegate(address srcValidator, address dstValidator, uint256 shares)
         external
-        payable
         override
         whenNotPaused
         onlyManager
-        returns (uint256 _amount)
     {
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-
         require(srcValidator != dstValidator, "Invalid Redelegation");
         require(validators[dstValidator], "Inactive dst validator");
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
 
         // redelegate through native staking contract
-        IStaking(NATIVE_STAKING).redelegate{value: msg.value}(srcValidator, dstValidator, amount);
+        IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
 
-        emit ReDelegate(srcValidator, dstValidator, amount);
-
-        return amount;
-    }
-
-    /**
-     * @dev Compound staking rewards
-     */
-    function compoundRewards()
-        public
-        override
-        whenNotPaused
-    {
-        require(totalDelegated > 0, "No funds delegated");
-
-        uint256 amount = IStaking(NATIVE_STAKING).claimReward();
-
-        if (synFee > 0) {
-            uint256 fee = amount * synFee / TEN_DECIMALS;
-            require(revenuePool != address(0x0), "revenue pool not set");
-            AddressUpgradeable.sendValue(payable(revenuePool), fee);
-            amount -= fee;
-        }
-
-        amountToDelegate += amount;
-
-        emit RewardsCompounded(amount);
+        emit ReDelegate(srcValidator, dstValidator, shares);
     }
 
     /**
@@ -358,60 +294,6 @@ contract ListaStakeManager is
         emit ClaimWithdrawal(user, _idx, amount);
     }
 
-    function claimAllWithdrawals() external override whenNotPaused {
-        address user = msg.sender;
-        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[user];
-
-        uint256 amount = 0;
-
-        require(userRequests.length > 0, "no request claimable");
-        uint256 count =userRequests.length;
-        while (count != 0) { // iterate from end to head
-            uint256 idx_ = count - 1;
-            WithdrawalRequest storage withdrawRequest = userRequests[idx_];
-            uint256 uuid = withdrawRequest.uuid;
-
-            // 1. queue.length == 0 => old logic
-            // 2. queue.length > 0 && uuid < queue[0].uuid => old logic
-            // 3. queue.length > 0 && uuid >= queue[0].uuid => new logic
-
-            if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
-                // new logic
-                UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
-                if (request.uuid >= nextConfirmedRequestUUID) {
-                    count -= 1;
-                    continue; // Skip new version User requests which are Not claimable yet
-                } else {
-                    amount += request.amount;
-                }
-            } else {
-                // old logic
-                if (uuidToBotUndelegateRequestMap[uuid].endTime == 0) {
-                    count -= 1;
-                    continue; // Skip old version User requests which are Not claimable yet
-                } else {
-                    uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
-                    BotUndelegateRequest
-                        storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
-
-                    uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
-                    uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
-                    uint256 _amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
-                        totalSlisBnbToBurn_;
-                    amount += _amount;
-                }
-            }
-
-            count -= 1;
-            userRequests[idx_] = userRequests[userRequests.length - 1];
-            userRequests.pop();
-        }
-
-        require(amount > 0, "nothing to claim");
-        AddressUpgradeable.sendValue(payable(user), amount);
-
-        emit ClaimAllWithdrawals(user, amount);
-    }
 
     /**
      * @dev Bot uses this function to get amount of BNB to withdraw
@@ -426,6 +308,8 @@ contract ListaStakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
+        revert("deprecated");
+        /*
         require(totalSnBnbToBurn > 0, "Nothing to undelegate");
 
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
@@ -461,95 +345,77 @@ contract ListaStakeManager is
         IStaking(NATIVE_STAKING).undelegate{value: msg.value}(bcValidator, _amount + reserveAmount);
 
         emit UndelegateReserve(reserveAmount);
+        */
     }
 
     /**
      * @dev Bot uses this function to get amount of BNB to withdraw
      * @param _validator - Validator to undelegate from
-     * @param _amt - Amount of BNB to undelegate, the amount must cover complete requests in queue
+     * @param _amount - Amount of BNB to undelegate, the amount must cover complete requests in queue
      * @return _nextUndelegatedRequestIndex - the next request index to be undelegated
-     * @return _amount - Amount of funds required to Unstake
+     * @return _shares - Amount of stToken returned to validator
      */
-    function undelegateFrom(address _validator, uint256 _amt)
+    function undelegateFrom(address _validator, uint256 _amount)
         external
-        payable
         override
         whenNotPaused
         onlyRole(BOT)
-        returns (uint256 _nextUndelegatedRequestIndex, uint256 _amount)
+        returns (uint256 _nextUndelegatedRequestIndex, uint256 _shares)
     {
-        require(totalDelegated >= _amt, "Not enough BNB to undelegate");
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
+        require(totalDelegated >= _amount, "Not enough BNB to undelegate");
         // old requests need to be processed by undelegate first
         require(totalSnBnbToBurn == 0, "Not able to undelegate yet");
 
-        /* console.log("_amt: %d", _amt); */
-        require(_amt % TEN_DECIMALS == 0, "Invalid Amount");
-        require(
-            _amt >= IStaking(NATIVE_STAKING).getMinDelegation(),
-            "Insufficient Withdraw Amount"
-        );
-
-        uint256 reminder = _amt;
+        uint256 reminder = _amount;
         uint256 totalSnBnbToBurn_ = 0;
         for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
             if (reminder == 0) {
                 break;
             }
             UserRequest storage req = withdrawalQueue[i];
-            require(req.amount <= reminder, "Amount should cover complete request");
+            require(reminder >= req.amount, "Amount should cover complete request");
             reminder -= req.amount;
             totalSnBnbToBurn_ += req.amountInSlisBnb;
             ++nextUndelegatedRequestIndex;
         }
 
-        totalDelegated -= _amt;
-
-        /* console.log("reminder: %d, totalSnBnbToBurn_: %d", reminder, totalSnBnbToBurn_); */
-
         require(reminder == 0 && totalSnBnbToBurn_ > 0, "Invalid Amount");
-        ISLisBNB(slisBnb).burn(address(this), totalSnBnbToBurn_);
-
-        // undelegate through native staking contract
-        IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amt);
-        _nextUndelegatedRequestIndex = nextUndelegatedRequestIndex;
-
-        emit Undelegate(nextUndelegatedRequestIndex, _amt);
-
-/*
-        // calculate the amount of SnBnb to burn
-        uint256 totalSnBnbToBurn_ = 0;
-        pendingUndelegatedQuota += _amount;
-        for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
-            UserRequest storage req = withdrawalQueue[i];
-            if (req.amount > pendingUndelegatedQuota) {
-                break;
-            }
-            pendingUndelegatedQuota -= req.amount;
-            totalSnBnbToBurn_ += req.amountInSlisBnb;
-            ++nextUndelegatedRequestIndex;
-        }
-
-        // sisBnbToBurnQuota = real total supply - total supply to burn - (total pooled bnb * exchange rate)
-        slisBnbToBurnQuota = ISLisBNB(slisBnb).totalSupply() - totalSnBnbToBurn_ - convertBnbToSnBnb(getTotalPooledBnb() - _amount);
         totalDelegated -= _amount;
 
-        if (totalSnBnbToBurn_ > 0) {
-            ISLisBNB(slisBnb).burn(address(this), totalSnBnbToBurn_);
-        }
+        ISLisBNB(slisBnb).burn(address(this), totalSnBnbToBurn_);
 
-        // undelegate through native staking contract
-        IStaking(NATIVE_STAKING).undelegate{value: msg.value}(_validator, _amount);
+        // calculate the amount of stToken
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        _shares = IStakeCredit(creditContract).getSharesByPooledBNB(_amount);
+        // undelegate through StakeHub contract, will revert if shares are not enough
+        IStakeHub(STAKE_HUB).undelegate(_validator, _shares);
         _nextUndelegatedRequestIndex = nextUndelegatedRequestIndex;
 
-        emit Undelegate(nextUndelegatedRequestIndex, _amount);
-*/
+        emit UndelegateFrom(nextUndelegatedRequestIndex, _amount, _shares);
     }
 
-    function claimUndelegated()
+    function getClaimableAmount(address _validator)
+        public
+        view
+        override
+        returns (uint256 _amount)
+    {
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        uint256 count = IStakeCredit(creditContract).claimableUnbondRequest(address(this));
+        uint256 index = 0;
+
+        while(count != 0) {
+            IStakeCredit.UnbondRequest memory req = IStakeCredit(creditContract).unbondRequest(address(this), index);
+            _amount += req.bnbAmount;
+            --count;
+            ++index;
+        }
+    }
+
+    /**
+     * @param _validator - The operator address of the validator
+     */
+    function claimUndelegated(address _validator)
         external
         override
         whenNotPaused
@@ -558,8 +424,11 @@ contract ListaStakeManager is
     {
         // Bot only can claim after undelegated all old requests
         require(totalSnBnbToBurn == 0, "Not able to claim yet");
-        uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
+        uint256 undelegatedAmount = getClaimableAmount(_validator);
         require(undelegatedAmount > 0, "Nothing to claim");
+
+        // claim unbond BNB and rewards
+        IStakeHub(STAKE_HUB).claim(_validator, 0);
         undelegatedQuota += undelegatedAmount;
 
         uint256 oldLastUUID = requestUUID;
@@ -592,28 +461,6 @@ contract ListaStakeManager is
         _amount = undelegatedAmount;
 
         emit ClaimUndelegated(_uuid, _amount);
-    }
-
-    function claimFailedDelegation(bool withReserve)
-        external
-        override
-        whenNotPaused
-        onlyRole(BOT)
-        returns (uint256 _amount)
-    {
-        uint256 failedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
-        if (withReserve) {
-            require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
-            amountToDelegate += failedAmount - reserveAmount;
-            totalDelegated -= failedAmount -reserveAmount;
-            totalReserveAmount += reserveAmount;
-        } else {
-            amountToDelegate += failedAmount;
-            totalDelegated -= failedAmount;
-        }
-
-        emit ClaimFailedDelegation(failedAmount, withReserve);
-        return failedAmount;
     }
 
     /**
@@ -692,7 +539,6 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(_synFee <= TEN_DECIMALS, "_synFee must not exceed 10000 (100%)");
-        compoundRewards();
         synFee = _synFee;
 
         emit SetSynFee(_synFee);
@@ -710,6 +556,7 @@ contract ListaStakeManager is
 
         emit SetRedirectAddress(_address);
     }
+
 
     function setRevenuePool(address _address)
         external
@@ -863,24 +710,11 @@ contract ListaStakeManager is
     }
 
     /**
-     * @return relayFee required by Native Staking contract
+     * @return the total amount of BNB staked and reward
      */
-    function getRelayFee() public view override returns (uint256) {
-        return IStaking(NATIVE_STAKING).getRelayerFee();
-    }
-
-    /**
-     * @return the timestamp to be able to invole `undelegate`
-     */
-    function getPendingUndelegateTime(address validator) external view override returns (uint256) {
-        return IStaking(NATIVE_STAKING).getPendingUndelegateTime(address(this), validator);
-    }
-
-    /**
-     * @return delegated amount to given validator
-     */
-    function getDelegated(address validator) public view override returns (uint256) {
-        return IStaking(NATIVE_STAKING).getDelegated(address(this), validator);
+    function getDelegated(address _validator) public view override returns (uint256) {
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        return IStakeCredit(creditContract).getPooledBNB(address(this));
     }
 
     /**
@@ -895,7 +729,6 @@ contract ListaStakeManager is
             uint256 amount = req.amount;
             _amount += amount;
         }
-	//         _amount -= pendingUndelegatedQuota;
     }
 
     /**
@@ -939,29 +772,21 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Add the existing BC validator to whitelist
-     */
-    function whitelistBcValidator()
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(!validators[bcValidator], "BC Validator whitelisted");
-        require(bcValidator != address(0), "zero address provided");
-
-        validators[bcValidator] = true;
-
-        emit WhitelistValidator(bcValidator);
-    }
-
-    /**
      * @dev Flips the pause state
      */
     function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         paused() ? _unpause() : _pause();
     }
 
+    /**
+     * @dev Flips the vote power flag
+     */
+    function toggleVote() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        delegateVotePower = !delegateVotePower;
+    }
+
     receive() external payable {
-        if (msg.sender != NATIVE_STAKING && msg.sender != redirectAddress) {
+        if (msg.sender != STAKE_HUB && msg.sender != redirectAddress) {
             AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
         }
     }
