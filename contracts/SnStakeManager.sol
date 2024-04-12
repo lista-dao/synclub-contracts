@@ -364,7 +364,7 @@ contract SnStakeManager is
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
-        require(_allAmount >= _amount, "Total amount should be lager than requested amount");
+        require(_allAmount > 0 && _allAmount >= _amount, "Total amount should be lager than requested amount");
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: block.timestamp,
