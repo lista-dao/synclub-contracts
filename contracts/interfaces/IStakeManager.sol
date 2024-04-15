@@ -72,7 +72,7 @@ interface IStakeManager {
 
     function revokeBotRole(address _address) external;
 
-    function setBCValidator(address _address) external;
+    function setBSCValidator(address _address) external;
 
     function setSynFee(uint256 _synFee) external;
 
@@ -153,7 +153,7 @@ interface IStakeManager {
     event ProposeManager(address indexed _address);
     event SetSynFee(uint256 _synFee);
     event SetRedirectAddress(address indexed _address);
-    event SetBCValidator(address indexed _address);
+    event SetBSCValidator(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);
     event DelegateReserve(uint256 _amount);

@@ -13,8 +13,6 @@ import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
 import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 
-/* import "hardhat/console.sol"; */
-
 /**
  * @title Stake Manager Contract
  * @dev Handles Staking of BNB on BSC
@@ -39,7 +37,7 @@ contract ListaStakeManager is
     uint256 public totalReserveAmount;
 
     address private slisBnb;
-    address private bcValidator;
+    address private bscValidator; // the initial BSC validator funds will be migrated to
 
     mapping(uint256 => BotUndelegateRequest)
         private uuidToBotUndelegateRequestMap; // no use in new logic
@@ -109,12 +107,12 @@ contract ListaStakeManager is
 
         manager = _manager;
         slisBnb = _slisBnb;
-        bcValidator = _validator;
+        bscValidator = _validator;
         synFee = _synFee;
         revenuePool = _revenuePool;
 
         emit SetManager(_manager);
-        emit SetBCValidator(bcValidator);
+        emit SetBSCValidator(bscValidator);
         emit SetRevenuePool(revenuePool);
         emit SetSynFee(_synFee);
     }
@@ -393,6 +391,7 @@ contract ListaStakeManager is
     }
 
     /**
+     * @dev Claim unbond BNB and rewards from the validator
      * @param _validator - The operator address of the validator
      */
     function claimUndelegated(address _validator)
@@ -407,7 +406,7 @@ contract ListaStakeManager is
         uint256 undelegatedAmount = getClaimableAmount(_validator);
         require(undelegatedAmount > 0, "Nothing to claim");
 
-        // claim unbond BNB and rewards
+
         IStakeHub(STAKE_HUB).claim(_validator, 0);
         undelegatedQuota += undelegatedAmount;
 
@@ -499,18 +498,18 @@ contract ListaStakeManager is
 
     }
 
-    /// @param _address - Beck32 decoding of Address of Validator Wallet on Beacon Chain with `0x` prefix
-    function setBCValidator(address _address)
+    /// @param _address - the operator address of BSC validator
+    function setBSCValidator(address _address)
         external
         override
         onlyManager
     {
-        require(bcValidator != _address, "Old address == new address");
+        require(bscValidator != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        bcValidator = _address;
+        bscValidator = _address;
 
-        emit SetBCValidator(_address);
+        emit SetBSCValidator(_address);
     }
 
     function setSynFee(uint256 _synFee)
@@ -600,12 +599,12 @@ contract ListaStakeManager is
         returns (
             address _manager,
             address _slisBnb,
-            address _bcValidator
+            address _bscValidator
         )
     {
         _manager = manager;
         _slisBnb = slisBnb;
-        _bcValidator = bcValidator;
+        _bscValidator = bscValidator;
     }
 
 
