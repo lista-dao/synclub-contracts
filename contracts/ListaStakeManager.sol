@@ -416,6 +416,7 @@ contract ListaStakeManager is
             oldLastUUID = withdrawalQueue[0].uuid - 1;
         }
 
+        uint256 rewards = undelegatedAmount;
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
@@ -423,6 +424,7 @@ contract ListaStakeManager is
             }
             botRequest.endTime = block.timestamp;
             undelegatedQuota -= botRequest.amount;
+            rewards -= botRequest.amount;
             ++nextConfirmedRequestUUID;
         }
 
@@ -433,7 +435,18 @@ contract ListaStakeManager is
                 break;
             }
             undelegatedQuota -= req.amount;
+            rewards -= req.amount;
             ++nextConfirmedRequestUUID;
+        }
+
+        // compound rewards
+        if (synFee > 0 && rewards > 0) {
+            uint256 fee = rewards * synFee / TEN_DECIMALS;
+            require(revenuePool != address(0x0), "revenue pool not set");
+            AddressUpgradeable.sendValue(payable(revenuePool), fee);
+            rewards -= fee;
+            amountToDelegate += rewards;
+            emit RewardsCompounded(rewards);
         }
 
         _uuid = nextConfirmedRequestUUID;
