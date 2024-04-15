@@ -136,35 +136,27 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows bot to delegate users' funds to native staking contract without reserved BNB
-     * @return _amount - Amount of funds transferred for staking
+     * @dev Allows bot to delegate users' funds to BSC validator
+     * @param _validator - Operator address of the BSC validator to delegate to
      * @notice The amount should be greater than minimum delegation on native staking contract
      */
-    function delegate()
+    function delegate(address _validator)
         external
-        payable
         override
         whenNotPaused
         onlyRole(BOT)
         returns (uint256 _amount)
     {
-        revert("deprecated");
-        /*
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-        _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
-
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(_amount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
+        _amount = amountToDelegate;
+        require(_amount >= IStakeHub(STAKE_HUB).minDelegationBNBChange(), "Insufficient Deposit Amount");
 
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
 
         // delegate through native staking contract
-        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value}(bcValidator, _amount);
+        IStakeHub(STAKE_HUB).delegate{value: _amount}(_validator, delegateVotePower);
 
         emit Delegate(_amount);
-       */
     }
 
     /**
@@ -296,56 +288,44 @@ contract ListaStakeManager is
 
 
     /**
-     * @dev Bot uses this function to get amount of BNB to withdraw
+     * @dev Undelegate the BNB amount equivalent to `totalSnBnbToBurn`(withdrawals between 4.16 ~ the 2nd upgrade) from the BSC validator.
+     *      Prcess the withdrawal requests happened before multi-validator upgrade
+     * @param _validator - Amount of SlisBnb to swap for withdraw
      * @return _uuid - unique id against which this Undelegation event was logged
-     * @return _amount - Amount of funds required to Unstake
+     * @return _shares - Amount of stTokens to be returned to the validator
      */
-    function undelegate()
+    function undelegate(address _validator)
         external
-        payable
         override
         whenNotPaused
         onlyRole(BOT)
-        returns (uint256 _uuid, uint256 _amount)
+        returns (uint256 _uuid, uint256 _shares)
     {
-        revert("deprecated");
-        /*
         require(totalSnBnbToBurn > 0, "Nothing to undelegate");
+        _uuid = requestUUID++; // nextUndelegateUUID renamed to requestUUID
 
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-
-        // old logic, handle history data
-        require(withdrawalQueue.length > 0, "No request received");
-        _uuid = withdrawalQueue[0].uuid > 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
-        _amount = convertSnBnbToBnb(totalSlisBnbToBurn_);
-        _amount -= _amount % TEN_DECIMALS;
-
-        require(
-            _amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(),
-            "Insufficient Withdraw Amount"
-        );
+        uint256 bnbAmount = convertSnBnbToBnb(totalSlisBnbToBurn_);
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: block.timestamp,
             endTime: 0,
-            amount: _amount,
+            amount: bnbAmount,
             amountInSnBnb: totalSlisBnbToBurn_
         });
 
-        totalDelegated -= _amount;
+        totalDelegated -= bnbAmount;
         totalSnBnbToBurn = 0;
-        totalReserveAmount += reserveAmount;
 
         ISLisBNB(slisBnb).burn(address(this), totalSlisBnbToBurn_);
 
-        // undelegate through native staking contract
-        IStaking(NATIVE_STAKING).undelegate{value: msg.value}(bcValidator, _amount + reserveAmount);
+        // calculate the amount of stToken
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        _shares = IStakeCredit(creditContract).getSharesByPooledBNB(bnbAmount);
+        // undelegate through stake hub contract
+        IStakeHub(STAKE_HUB).undelegate(_validator, _shares);
 
         emit UndelegateReserve(reserveAmount);
-        */
     }
 
     /**
