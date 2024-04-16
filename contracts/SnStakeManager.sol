@@ -136,7 +136,6 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
-        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -166,6 +165,7 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -176,6 +176,7 @@ contract SnStakeManager is
 
         amountToDelegate = amountToDelegate - _amount;
         totalDelegated += _amount;
+        totalReserveAmount -= reserveAmount;
 
         // delegate through native staking contract
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
@@ -330,6 +331,7 @@ contract SnStakeManager is
 
         totalDelegated -= _amount;
         totalSnBnbToBurn = 0;
+        totalReserveAmount += reserveAmount;
 
         ISnBnb(snBnb).burn(address(this), totalSnBnbToBurn_);
 
@@ -364,7 +366,7 @@ contract SnStakeManager is
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
-        require(_allAmount > 0 && _allAmount >= _amount, "Total amount should be lager than requested amount");
+        require(_allAmount > 0 && _allAmount >= _amount, "Total amount should be larger than requested amount");
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: block.timestamp,
