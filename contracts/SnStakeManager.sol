@@ -331,7 +331,6 @@ contract SnStakeManager is
 
         totalDelegated -= _amount;
         totalSnBnbToBurn = 0;
-        totalReserveAmount += reserveAmount;
 
         ISnBnb(snBnb).burn(address(this), totalSnBnbToBurn_);
 
