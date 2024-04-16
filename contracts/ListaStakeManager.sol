@@ -134,11 +134,10 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows bot to delegate users' funds to BSC validator
-     * @param _validator - Operator address of the BSC validator to delegate to
+     * @dev Allows bot to delegate users' funds to bscValidator
      * @notice The amount should be greater than minimum delegation on native staking contract
      */
-    function delegate(address _validator)
+    function delegate()
         external
         override
         whenNotPaused
@@ -152,7 +151,7 @@ contract ListaStakeManager is
         totalDelegated += _amount;
 
         // delegate through native staking contract
-        IStakeHub(STAKE_HUB).delegate{value: _amount}(_validator, delegateVotePower);
+        IStakeHub(STAKE_HUB).delegate{value: _amount}(bscValidator, delegateVotePower);
 
         emit Delegate(_amount);
     }
@@ -286,13 +285,12 @@ contract ListaStakeManager is
 
 
     /**
-     * @dev Undelegate the BNB amount equivalent to `totalSnBnbToBurn`(withdrawals between 4.16 ~ the 2nd upgrade) from the BSC validator.
-     *      Prcess the withdrawal requests happened before multi-validator upgrade
-     * @param _validator - Amount of SlisBnb to swap for withdraw
+     * @dev Undelegate the BNB amount equivalent to `totalSnBnbToBurn`(withdrawals between 4.16 ~ the 2nd upgrade) from the bscValidator.
+     *      Process the withdrawal requests happened before multi-validator upgrade
      * @return _uuid - unique id against which this Undelegation event was logged
      * @return _shares - Amount of stTokens to be returned to the validator
      */
-    function undelegate(address _validator)
+    function undelegate()
         external
         override
         whenNotPaused
@@ -318,10 +316,10 @@ contract ListaStakeManager is
         ISLisBNB(slisBnb).burn(address(this), totalSlisBnbToBurn_);
 
         // calculate the amount of stToken
-        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(bscValidator);
         _shares = IStakeCredit(creditContract).getSharesByPooledBNB(bnbAmount);
         // undelegate through stake hub contract
-        IStakeHub(STAKE_HUB).undelegate(_validator, _shares);
+        IStakeHub(STAKE_HUB).undelegate(bscValidator, _shares);
 
         emit UndelegateReserve(reserveAmount);
     }

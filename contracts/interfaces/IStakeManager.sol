@@ -34,7 +34,7 @@ interface IStakeManager {
 
     function deposit() external payable;
 
-    function delegate(address _validator)
+    function delegate()
         external
         returns (uint256 _amount);
 
@@ -48,7 +48,7 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
-    function undelegate(address _validator)
+    function undelegate()
         external
         returns (uint256 _uuid, uint256 _shares);
 
