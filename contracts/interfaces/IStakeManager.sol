@@ -48,13 +48,13 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
-    function undelegate()
+    function undelegate(uint256 _expectedShares)
         external
         returns (uint256 _uuid, uint256 _shares);
 
-    function undelegateFrom(address _validator, uint256 _amt)
+    function undelegateFrom(address _operator, uint256 _shares)
         external
-        returns (uint256 _nextUndelegatedRequestIndex, uint256 _amount);
+        returns (uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
 
@@ -124,6 +124,10 @@ interface IStakeManager {
 
     function getDelegated(address validator) external view returns (uint256);
 
+    function convertSharesToBnb(address _operator, uint256 _shares) external view returns (uint256);
+
+    function convertBnbToShares(address _operator, uint256 _bnbAmount) external view returns (uint256);
+
     function convertBnbToSnBnb(uint256 _amount) external view returns (uint256);
 
     function convertSnBnbToBnb(uint256 _amountInSlisBnb)
@@ -147,8 +151,8 @@ interface IStakeManager {
         uint256 _amount
     );
     event ClaimAllWithdrawals(address indexed _account, uint256 _amount);
-    event Undelegate(uint256 _nextUndelegatedRequestIndex, uint256 _amount);
-    event UndelegateFrom(uint256 _nextUndelegatedRequestIndex, uint256 _amount, uint256 _shares);
+    event Undelegate(uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount, uint256 _shares);
+    event UndelegateFrom(address indexed _operator, uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount, uint256 _shares);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
     event ProposeManager(address indexed _address);
@@ -157,7 +161,6 @@ interface IStakeManager {
     event SetBSCValidator(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);
-    event DelegateReserve(uint256 _amount);
     event UndelegateReserve(uint256 _amount);
     event SetReserveAmount(uint256 _amount);
     event ClaimUndelegated(uint256 _uuid, uint256 _amount);

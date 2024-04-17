@@ -286,12 +286,13 @@ contract ListaStakeManager is
 
 
     /**
-     * @dev Undelegate the BNB amount equivalent to `totalSnBnbToBurn`(withdrawals between 4.16 ~ the 2nd upgrade) from the bscValidator.
+     * @dev Undelegate the BNB amount equivalent to `totalSnBnbToBurn`(withdrawals between 4.22 ~ the 2nd upgrade) from the bscValidator.
      *      Process the withdrawal requests happened before multi-validator upgrade
+     * @param _expectedShares - Amount of stTokens to be returned to the validator
      * @return _uuid - unique id against which this Undelegation event was logged
      * @return _shares - Amount of stTokens to be returned to the validator
      */
-    function undelegate()
+    function undelegate(uint256 _expectedShares)
         external
         override
         whenNotPaused
@@ -316,34 +317,39 @@ contract ListaStakeManager is
 
         ISLisBNB(slisBnb).burn(address(this), totalSlisBnbToBurn_);
 
-        // calculate the amount of stToken
         address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(bscValidator);
         _shares = IStakeCredit(creditContract).getSharesByPooledBNB(bnbAmount);
-        // undelegate through stake hub contract
+
+        // FIXME: need more vaiidation on `_expectedShares`?
+        if (bnbAmount != convertSharesToBnb(bscValidator, _shares)) {
+            _shares = _expectedShares;
+        }
+
         IStakeHub(STAKE_HUB).undelegate(bscValidator, _shares);
 
-        emit UndelegateReserve(reserveAmount);
+        emit Undelegate(_uuid, bnbAmount, _shares);
     }
 
     /**
      * @dev Bot uses this function to get amount of BNB to withdraw
-     * @param _validator - Validator to undelegate from
-     * @param _amount - Amount of BNB to undelegate, the amount must cover complete requests in queue
+     * @param _operator - Operator address of validator to undelegate from
+     * @param _shares- Amount of stToken to undelegate, _shares should be equivalent to BNB amount to undelegete
      * @return _nextUndelegatedRequestIndex - the next request index to be undelegated
-     * @return _shares - Amount of stToken returned to validator
+     * @return _bnbAmount - Amount of BNB to undelegate
+     * @notice Bot should invoke `undelegate()` first to process old requests before calling this function
      */
-    function undelegateFrom(address _validator, uint256 _amount)
+    function undelegateFrom(address _operator, uint256 _shares)
         external
         override
         whenNotPaused
         onlyRole(BOT)
-        returns (uint256 _nextUndelegatedRequestIndex, uint256 _shares)
+        returns (uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount)
     {
-        require(totalDelegated >= _amount, "Not enough BNB to undelegate");
-        // old requests need to be processed by undelegate first
-        require(totalSnBnbToBurn == 0, "Not able to undelegate yet");
+        require(totalSnBnbToBurn == 0, "Old requests should be processed first");
+        _bnbAmount = convertSharesToBnb(_operator, _shares);
+        require(totalDelegated >= _bnbAmount, "Not enough BNB to undelegate");
 
-        uint256 reminder = _amount;
+        uint256 reminder = _bnbAmount;
         uint256 totalSnBnbToBurn_ = 0;
         for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
             if (reminder == 0) {
@@ -357,18 +363,15 @@ contract ListaStakeManager is
         }
 
         require(reminder == 0 && totalSnBnbToBurn_ > 0, "Invalid Amount");
-        totalDelegated -= _amount;
+        totalDelegated -= _bnbAmount;
 
         ISLisBNB(slisBnb).burn(address(this), totalSnBnbToBurn_);
 
-        // calculate the amount of stToken
-        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
-        _shares = IStakeCredit(creditContract).getSharesByPooledBNB(_amount);
         // undelegate through StakeHub contract, will revert if shares are not enough
-        IStakeHub(STAKE_HUB).undelegate(_validator, _shares);
+        IStakeHub(STAKE_HUB).undelegate(_operator, _shares);
         _nextUndelegatedRequestIndex = nextUndelegatedRequestIndex;
 
-        emit UndelegateFrom(nextUndelegatedRequestIndex, _amount, _shares);
+        emit UndelegateFrom(_operator, nextUndelegatedRequestIndex, _bnbAmount, _shares);
     }
 
     function getClaimableAmount(address _validator)
@@ -619,7 +622,7 @@ contract ListaStakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(!validators[_address], "Validator is should be inactive");
-	require(getDelegated(_address) == 0, "Balance is not zero");
+        require(getDelegated(_address) == 0, "Balance is not zero");
 
         syncCredits(_address, true);
         delete validators[_address];
@@ -750,6 +753,26 @@ contract ListaStakeManager is
             uint256 amount = req.amount;
             _amount += amount;
         }
+    }
+
+    function convertSharesToBnb(address _operator, uint256 _shares)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_operator);
+        return IStakeCredit(creditContract).getPooledBNBByShares(_shares);
+    }
+
+    function convertBnbToShares(address _operator, uint256 _bnbAmount)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_operator);
+        return IStakeCredit(creditContract).getSharesByPooledBNB(_bnbAmount);
     }
 
     /**
