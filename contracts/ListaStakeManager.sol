@@ -63,6 +63,7 @@ contract ListaStakeManager is
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
+    address[] internal creditContracts;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -509,6 +510,29 @@ contract ListaStakeManager is
 
     }
 
+    /**
+     * @dev Syncs the credit contract of the validator
+     */
+    function syncCredits(address _validator, bool toRemove) internal {
+        address credit = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        bool found = false;
+        for (uint256 i = 0; i < creditContracts.length; i++) {
+            if (creditContracts[i] == credit) {
+                found = true;
+                if (toRemove) {
+                    creditContracts[i] = creditContracts[creditContracts.length - 1];
+                    creditContracts.pop();
+                }
+                break;
+            }
+        }
+        if (!found && !toRemove) {
+            creditContracts.push(credit);
+        }
+
+        emit SyncCreditContract(_validator, credit, toRemove);
+    }
+
     /// @param _address - the operator address of BSC validator
     function setBSCValidator(address _address)
         external
@@ -519,6 +543,7 @@ contract ListaStakeManager is
         require(_address != address(0), "zero address provided");
 
         bscValidator = _address;
+        syncCredits(bscValidator, false);
 
         emit SetBSCValidator(_address);
     }
@@ -570,6 +595,7 @@ contract ListaStakeManager is
         require(_address != address(0), "zero address provided");
 
         validators[_address] = true;
+        syncCredits(_address, false);
 
         emit WhitelistValidator(_address);
     }
@@ -582,6 +608,7 @@ contract ListaStakeManager is
         require(validators[_address], "Validator is not active");
 
         validators[_address] = false;
+        syncCredits(_address, true);
 
         emit DisableValidator(_address);
     }
@@ -594,6 +621,7 @@ contract ListaStakeManager is
         require(!validators[_address], "Validator is should be inactive");
 	require(getDelegated(_address) == 0, "Balance is not zero");
 
+        syncCredits(_address, true);
         delete validators[_address];
 
         emit RemoveValidator(_address);
@@ -610,12 +638,14 @@ contract ListaStakeManager is
         returns (
             address _manager,
             address _slisBnb,
-            address _bscValidator
+            address _bscValidator,
+            address[] memory _creditContracts
         )
     {
         _manager = manager;
         _slisBnb = slisBnb;
         _bscValidator = bscValidator;
+        _creditContracts = creditContracts;
     }
 
 
@@ -708,6 +738,7 @@ contract ListaStakeManager is
     }
 
     /**
+     * @dev Bot use this method to get the amount of BNB to call undelegateFrom
      * @return _amount Bnb amount to be undelegated by bot
      */
     function getAmountToUndelegate() public view override returns (uint256 _amount) {
@@ -775,8 +806,19 @@ contract ListaStakeManager is
         delegateVotePower = !delegateVotePower;
     }
 
+    function isCreditContract(address sender) internal view returns (bool) {
+        bool isCredit = false;
+        for (uint256 i = 0; i < creditContracts.length; i++) {
+            if (creditContracts[i] == sender) {
+                isCredit = true;
+                break;
+            }
+        }
+        return isCredit;
+    }
+
     receive() external payable {
-        if (msg.sender != STAKE_HUB && msg.sender != redirectAddress) {
+        if ((!isCreditContract(msg.sender)) && msg.sender != redirectAddress) {
             AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
         }
     }

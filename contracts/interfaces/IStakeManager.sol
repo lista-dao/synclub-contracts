@@ -94,7 +94,8 @@ interface IStakeManager {
         returns (
             address _manager,
             address _snBnb,
-            address _bcValidator
+            address _bcValidator,
+            address[] memory _credits
         );
 
     function getBotUndelegateRequest(uint256 _uuid)
@@ -163,4 +164,5 @@ interface IStakeManager {
     event WhitelistValidator(address indexed _address);
     event DisableValidator(address indexed _address);
     event RemoveValidator(address indexed _address);
+    event SyncCreditContract(address indexed _validator, address _credit, bool toRemove);
 }
