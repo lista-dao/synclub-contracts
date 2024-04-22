@@ -36,6 +36,12 @@ interface IStakeManager {
 
     function deposit() external payable;
 
+    function depositV2() external payable returns (uint256 _amountInLisBnb);
+
+    function stake(uint256 _amountInLisBnb) external returns (uint256 _amountInSlisBnb);
+
+    function unstake(uint256 _amountInSlisBnb) external returns (uint256 _amountInLisBnb);
+
     function delegateTo(address validator, uint256 amount)
         external;
 
@@ -43,6 +49,10 @@ interface IStakeManager {
         external;
 
     function requestWithdraw(uint256 _amountInSnBnb) external;
+
+    function redeem(uint256 _amountInSnBnb) external;
+
+    function redeemWithLisBnb(uint256 _amountInLisBnb) external;
 
     function claimWithdraw(uint256 _idx) external;
 
