@@ -12,6 +12,7 @@ import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
 import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
+import {ILisBNB} from "./interfaces/ILisBNB.sol";
 
 /**
  * @title Stake Manager Contract
@@ -38,6 +39,7 @@ contract ListaStakeManager is
 
     address private slisBnb;
     address private bscValidator; // the initial BSC validator funds will be migrated to
+    address private lisBnb;
 
     mapping(uint256 => BotUndelegateRequest)
         private uuidToBotUndelegateRequestMap; // no use in new logic
@@ -139,6 +141,39 @@ contract ListaStakeManager is
     }
 
     /**
+     * @dev Allows user to deposit Bnb at BSC and mints lisBnb for the user
+    */
+    function depositV2() external payable override whenNotPaused returns (uint256 _amountInLisBnb) {
+        uint256 amount = msg.value;
+        require(amount > 0, "Invalid Amount");
+
+        amountToDelegate += amount;
+
+        ILisBNB(lisBnb).mint(msg.sender, amount);
+
+        _amountInLisBnb = amount;
+        emit Deposit(msg.sender, amount);
+    }
+
+    function stake(uint256 _amountInLisBnb) external override whenNotPaused returns (uint256 _amountInSlisBnb) {
+        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
+        _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+
+        ILisBNB(lisBnb).burn(msg.sender, _amountInSlisBnb);
+
+        ISLisBNB(slisBnb).mint(msg.sender, slisBnbToMint);
+    }
+
+    function unstake(uint256 _amountInSlisBnb) external override whenNotPaused returns (uint256 _amountInLisBnb) {
+        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
+        _amountInLisBnb = convertSnBnbToBnb(_amountInSlisBnb);
+
+        ISLisBNB(slisBnb).burn(msg.sender, _amountInSlisBnb);
+
+        ILisBNB(lisBnb).mint(msg.sender, lisBnbToMint);
+    }
+
+    /**
      * @dev Allows bot to delegate users' funds to given BSC validator
      * @param _validator - Operator address of the BSC validator to delegate to
      * @param _amount - Amount of BNB to delegate
@@ -226,6 +261,26 @@ contract ListaStakeManager is
             _amountInSlisBnb
         );
         emit RequestWithdraw(msg.sender, _amountInSlisBnb);
+    }
+
+    /**
+     * @dev Allows user to request for unstake/withdraw funds
+     * @param _amountInLisBnb - Amount of lisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend lisBnb
+    */
+    function requestWithdrawByLisBnb(uint256 _amountInLisBnb)
+    external
+    override
+    whenNotPaused
+    {
+        require(_amountInLisBnb > 0, "Invalid Amount");
+        uint256 _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+
+        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
+
+        ISLisBNB(slisBnb).mint(msg.sender, _amountInSlisBnb);
+
+        requestWithdraw(_amountInSlisBnb);
     }
 
     /**
@@ -593,7 +648,7 @@ contract ListaStakeManager is
     }
 
     function getTotalPooledBnb() public view override returns (uint256) {
-        return (amountToDelegate + totalDelegated);
+        return (amountToDelegate + totalDelegated - ILisBNB(lisBnb).totalSupply());
     }
 
     function getContracts()
