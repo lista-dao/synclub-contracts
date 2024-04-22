@@ -136,6 +136,8 @@ interface IStakeManager {
         view
         returns (uint256 _amount);
 
+    function compoundRewards() external;
+
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
     event DelegateTo(address _validator, uint256 _amount, bool _delegateVotePower);

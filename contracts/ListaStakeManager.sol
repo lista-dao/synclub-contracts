@@ -66,6 +66,8 @@ contract ListaStakeManager is
     address[] internal creditContracts;
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
 
+    uint256 public totalFee;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -803,5 +805,36 @@ contract ListaStakeManager is
     modifier onlyRedirectAddress() {
         require(msg.sender == redirectAddress, "Accessible only by RedirectAddress");
         _;
+    }
+
+    /**
+    * @dev Allows bot to compound rewards
+     */
+    function compoundRewards()
+    external
+    override
+    whenNotPaused
+    onlyRole(BOT)
+    {
+        require(totalDelegated > 0, "No funds delegated");
+
+        uint256 totalBNBInValidators = getTotalBnbInValidators();
+        uint256 totalProfit = totalBNBInValidators - totalDelegated - totalFee;
+        uint256 totalUserProfit = totalProfit * 95 / 100;
+        uint256 amount = totalProfit * 5 / 100;
+        totalFee += amount;
+
+        totalDelegated += totalProfit;
+
+        emit RewardsCompounded(amount);
+    }
+
+    function getTotalBnbInValidators() internal view returns (uint256) {
+        uint256 totalBnb = 0;
+        for (uint256 i = 0; i < creditContracts.length; i++) {
+            IStakeCredit credit = IStakeCredit(creditContracts[i]);
+            totalBnb += credit.getPooledBNB(address(this)) + credit.lockedBNBs(address(this), 0);
+        }
+        return totalBnb;
     }
 }
