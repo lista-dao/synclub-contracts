@@ -34,10 +34,6 @@ interface IStakeManager {
 
     function deposit() external payable;
 
-    function delegate()
-        external
-        returns (uint256 _amount);
-
     function delegateTo(address validator, uint256 amount)
         external;
 
@@ -48,13 +44,13 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
-    function undelegate(uint256 _expectedShares)
+    function undelegate()
         external
         returns (uint256 _uuid, uint256 _shares);
 
-    function undelegateFrom(address _operator, uint256 _shares)
+    function undelegateFrom(address _operator, uint256 _amount)
         external
-        returns (uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount);
+        returns (uint256 bnbToUndelegate);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
 
@@ -152,7 +148,7 @@ interface IStakeManager {
     );
     event ClaimAllWithdrawals(address indexed _account, uint256 _amount);
     event Undelegate(uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount, uint256 _shares);
-    event UndelegateFrom(address indexed _operator, uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount, uint256 _shares);
+    event UndelegateFrom(address indexed _operator, uint256 _bnbAmount, uint256 _shares);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
     event ProposeManager(address indexed _address);
@@ -164,6 +160,7 @@ interface IStakeManager {
     event UndelegateReserve(uint256 _amount);
     event SetReserveAmount(uint256 _amount);
     event ClaimUndelegated(uint256 _uuid, uint256 _amount);
+    event ClaimUndelegatedFrom(address indexed _validator, uint256 _uuid, uint256 _amount);
     event WhitelistValidator(address indexed _address);
     event DisableValidator(address indexed _address);
     event RemoveValidator(address indexed _address);
