@@ -455,7 +455,7 @@ contract SnStakeManager is
         }
         _uuid = confirmedUndelegatedUUID;
         amountToDelegate += remainingAmount;
-        totalDelegated -= remainingAmount; // totalDelegated should be zero after this
+        totalDelegated -= remainingAmount;
         _amount = undelegatedAmount;
 
         emit ClaimUndelegated(_uuid, undelegatedAmount);
