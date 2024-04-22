@@ -33,4 +33,6 @@ interface IStakeCredit {
         address delegator
     ) external view returns (uint256);
     function getPooledBNB(address account) external view returns (uint256);
+
+    function lockedBNBs(address delegator, uint256 number) external view returns (uint256);
 }
