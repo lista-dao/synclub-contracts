@@ -136,7 +136,8 @@ interface IStakeManager {
         view
         returns (uint256 _amount);
 
-    function compoundRewards() external;
+    function updateFee() external;
+    function claimFee() external;
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);

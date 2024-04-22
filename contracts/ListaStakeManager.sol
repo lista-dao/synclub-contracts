@@ -810,7 +810,7 @@ contract ListaStakeManager is
     /**
     * @dev Allows bot to compound rewards
      */
-    function compoundRewards()
+    function updateFee()
     external
     override
     whenNotPaused
@@ -819,17 +819,33 @@ contract ListaStakeManager is
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
+        require(totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
         uint256 totalProfit = totalBNBInValidators - totalDelegated - totalFee;
-        uint256 totalUserProfit = totalProfit * 95 / 100;
-        uint256 amount = totalProfit * 5 / 100;
-        totalFee += amount;
+        uint256 fee = 0;
+        if (synFee > 0) {
+            fee = totalProfit * synFee / TEN_DECIMALS;
+            totalFee += fee;
+        }
+        uint256 totalUserProfit = totalProfit - fee;
 
-        totalDelegated += totalProfit;
+        totalDelegated += totalUserProfit;
 
-        emit RewardsCompounded(amount);
+        emit RewardsCompounded(fee);
     }
 
-    function getTotalBnbInValidators() internal view returns (uint256) {
+    function claimFee() external override whenNotPaused onlyRole(BOT) {
+        require(totalFee > 0, "No fee to claim");
+        require(revenuePool != address(0x0), "revenue pool not set");
+
+        uint256 slisBNBAmount = convertBnbToSnBnb(totalFee);
+        require(slisBNBAmount > 0, "Invalid slisBnb Amount");
+        totalDelegated += totalFee;
+        totalFee = 0;
+
+        ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
+    }
+
+    function getTotalBnbInValidators() public view returns (uint256) {
         uint256 totalBnb = 0;
         for (uint256 i = 0; i < creditContracts.length; i++) {
             IStakeCredit credit = IStakeCredit(creditContracts[i]);
