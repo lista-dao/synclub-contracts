@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISnBnb} from "./interfaces/ISnBnb.sol";
 import {IStaking} from "./interfaces/INativeStaking.sol";
+import {IStakeHub} from "./interfaces/IStakeHub.sol";
 
 /**
  * @title Stake Manager Contract
@@ -150,6 +151,26 @@ contract SnStakeManager is
         IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value}(bcValidator, _amount);
 
         emit Delegate(_amount);
+    }
+
+    /**
+     * @dev One time function to delegate to BSC validator right after claimUndelegatedAll
+     * @param _amount - Amount of bnb to delegate to the hard-coded BSC validator
+     */
+    function delegateTo(uint256 _amount) external whenNotPaused onlyRole(BOT) {
+        address stakeHub = 0x0000000000000000000000000000000000002002;
+        address validator = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
+        bool delegateVotePower = false;
+
+        require(amountToDelegate >= _amount, "Not enough BNB to delegate");
+        require(_amount >= IStakeHub(stakeHub).minDelegationBNBChange(), "Insufficient Delegation Amount");
+
+        amountToDelegate -= _amount;
+        totalDelegated += _amount;
+
+        // delegate through StakeHub contract
+        IStakeHub(stakeHub).delegate{value: _amount}(validator, delegateVotePower);
+        emit DelegateTo(validator, _amount, delegateVotePower);
     }
 
     /**

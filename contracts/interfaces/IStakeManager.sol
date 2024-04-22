@@ -129,6 +129,7 @@ interface IStakeManager {
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
+    event DelegateTo(address indexed _validator, uint256 _amount, bool _delegateVotePower);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
