@@ -38,7 +38,7 @@ interface IStakeManager {
         external;
 
     function redelegate(address srcValidator, address dstValidator, uint256 shares)
-        external;
+        external payable;
 
     function requestWithdraw(uint256 _amountInSnBnb) external;
 
@@ -141,6 +141,11 @@ interface IStakeManager {
     function claimFee() external;
 
     function getTotalBnbInValidators() external returns (uint256);
+
+    function getRedelegateFee(uint256 bnbAmount)
+        external
+        view
+        returns (uint256);
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
