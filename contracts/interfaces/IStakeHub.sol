@@ -6,6 +6,7 @@ interface IStakeHub {
     function DEAD_ADDRESS() external view returns (address);
     function LOCK_AMOUNT() external view returns (uint256);
     function BREATHE_BLOCK_INTERVAL() external view returns (uint256);
+    function REDELEGATE_FEE_RATE_BASE() external view returns (uint256);
     function unbondPeriod() external view returns (uint256);
     function transferGasLimit() external view returns (uint256);
 
@@ -48,7 +49,7 @@ interface IStakeHub {
         address dstValidator,
         uint256 shares,
         bool delegateVotePower
-    ) external;
+    ) external payable;
 
     /**
      * @dev Claim the undelegated BNB from the pool after unbondPeriod
