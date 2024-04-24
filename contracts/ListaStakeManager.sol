@@ -336,7 +336,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Claim unbond BNB and rewards from the validator
+     * @dev Claim unbonded BNB and rewards from the validator
      * @param _validator - The operator address of the validator
      * @return _uuid - the next confirmed request uuid
      * @return _amount - the amount of BNB claimed, staking rewards included
@@ -357,12 +357,10 @@ contract ListaStakeManager is
         uint256 undelegatedAmount = address(this).balance - balanceBefore;
 
         undelegatedQuota += undelegatedAmount;
-        uint256 _slisBnbToBurn = convertBnbToSnBnb(undelegatedAmount);
-
-        ISLisBNB(slisBnb).burn(address(this), _slisBnbToBurn);
-        totalDelegated -= undelegatedAmount;
         unbondingBnb -= undelegatedAmount;
 
+        uint256 coveredAmount = 0;
+        uint256 coveredSlisBnbAmount = 0;
         uint256 oldLastUUID = requestUUID;
 
         if (withdrawalQueue.length != 0) {
@@ -372,10 +370,13 @@ contract ListaStakeManager is
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
-                return (0, 0);
+                emit ClaimUndelegatedFrom(_validator, nextConfirmedRequestUUID, undelegatedAmount);
+                return (nextConfirmedRequestUUID, undelegatedAmount);
             }
             botRequest.endTime = block.timestamp;
             undelegatedQuota -= botRequest.amount;
+            coveredAmount += botRequest.amount;
+            coveredSlisBnbAmount += botRequest.amountInSnBnb;
             ++nextConfirmedRequestUUID;
         }
 
@@ -386,7 +387,14 @@ contract ListaStakeManager is
                 break;
             }
             undelegatedQuota -= req.amount;
+            coveredAmount += req.amount;
+            coveredSlisBnbAmount += req.amountInSlisBnb;
             ++nextConfirmedRequestUUID;
+        }
+
+        totalDelegated -= coveredAmount;
+        if (coveredSlisBnbAmount > 0) {
+            ISLisBNB(slisBnb).burn(address(this), coveredSlisBnbAmount);
         }
 
         _uuid = nextConfirmedRequestUUID;
