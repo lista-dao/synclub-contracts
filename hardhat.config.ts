@@ -16,6 +16,7 @@ import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "hardhat-forta";
 import "hardhat-storage-layout";
+import "@nomicfoundation/hardhat-foundry";
 
 import {
   DEPLOYER_PRIVATE_KEY,
