@@ -174,35 +174,22 @@ contract SnStakeManager is
     }
 
     /**
-     * @dev Allows bot to delegate users' funds + reserved BNB to native staking contract
-     * @return _amount - Amount of funds transferred for staking
-     * @notice The amount should be greater than minimum delegation on native staking contract
+     * @dev Allows manager to delegate reserve amount(100 Bnb) to the hard-coded validator;
+     *      This function is used to amend the balance difference caused by missing `delegateWithReserve` operations
+     * @notice The reserve amount should be greater than minimum delegation on stake hub contract
      */
-    function delegateWithReserve()
+    function delegateReserve()
         external
-        payable
-        override
         whenNotPaused
-        onlyRole(BOT)
-        returns (uint256 _amount)
+        onlyManager
     {
-        revert("Not supported");
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-        _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
+        require(reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
+        address stakeHub = 0x0000000000000000000000000000000000002002;
+        address validator = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
+        bool delegateVotePower = false;
 
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(totalReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
-        require(_amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
+        IStakeHub(stakeHub).delegate{value: reserveAmount}(validator, delegateVotePower);
 
-        amountToDelegate = amountToDelegate - _amount;
-        totalDelegated += _amount;
-        totalReserveAmount -= reserveAmount;
-
-        // delegate through native staking contract
-        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
-
-        emit Delegate(_amount);
         emit DelegateReserve(reserveAmount);
     }
 
