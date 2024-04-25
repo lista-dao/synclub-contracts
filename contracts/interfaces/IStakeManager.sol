@@ -90,8 +90,7 @@ interface IStakeManager {
         returns (
             address _manager,
             address _snBnb,
-            address _bcValidator,
-            address[] memory _credits
+            address _bcValidator
         );
 
     function getBotUndelegateRequest(uint256 _uuid)

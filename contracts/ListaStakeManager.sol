@@ -64,6 +64,7 @@ contract ListaStakeManager is
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
     address[] public creditContracts;
+    mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `reveive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
 
     uint256 public totalFee;
@@ -463,20 +464,25 @@ contract ListaStakeManager is
      */
     function syncCredits(address _validator, bool toRemove) internal {
         address credit = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
-        bool found = false;
-        for (uint256 i = 0; i < creditContracts.length; i++) {
-            if (creditContracts[i] == credit) {
-                found = true;
-                if (toRemove) {
+        if (toRemove) {
+            delete creditStates[credit];
+
+            for (uint256 i = 0; i < creditContracts.length; i++) {
+                if (creditContracts[i] == credit) {
                     creditContracts[i] = creditContracts[creditContracts.length - 1];
                     creditContracts.pop();
+                    break;
                 }
-                break;
             }
+            emit SyncCreditContract(_validator, credit, toRemove);
+            return;
+        } else if (creditStates[credit]) {
+            // do nothing if credit already exists
+            return;
         }
-        if (!found && !toRemove) {
-            creditContracts.push(credit);
-        }
+
+        creditStates[credit] = true;
+        creditContracts.push(credit);
 
         emit SyncCreditContract(_validator, credit, toRemove);
     }
@@ -555,6 +561,11 @@ contract ListaStakeManager is
         emit WhitelistValidator(_address);
     }
 
+    /**
+     * @dev Disables the validator from the contract.
+     *      Upon disabled, bot can only undelegete the funds, delegation is not allowed
+     * @param _address - the operator address of the validator
+     */
     function disableValidator(address _address)
         external
         override
@@ -563,7 +574,6 @@ contract ListaStakeManager is
         require(validators[_address], "Validator is not active");
 
         validators[_address] = false;
-        syncCredits(_address, true);
 
         emit DisableValidator(_address);
     }
@@ -593,14 +603,12 @@ contract ListaStakeManager is
         returns (
             address _manager,
             address _slisBnb,
-            address _bscValidator,
-            address[] memory _creditContracts
+            address _bscValidator
         )
     {
         _manager = manager;
         _slisBnb = slisBnb;
         _bscValidator = bscValidator;
-        _creditContracts = creditContracts;
     }
 
 
@@ -816,19 +824,8 @@ contract ListaStakeManager is
         delegateVotePower = !delegateVotePower;
     }
 
-    function isCreditContract(address sender) internal view returns (bool) {
-        bool isCredit = false;
-        for (uint256 i = 0; i < creditContracts.length; i++) {
-            if (creditContracts[i] == sender) {
-                isCredit = true;
-                break;
-            }
-        }
-        return isCredit;
-    }
-
     receive() external payable {
-        if ((!isCreditContract(msg.sender)) && msg.sender != redirectAddress) {
+        if ((!creditStates[msg.sender]) && msg.sender != redirectAddress) {
             AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
         }
     }
@@ -885,7 +882,9 @@ contract ListaStakeManager is
         uint256 totalBnb = 0;
         for (uint256 i = 0; i < creditContracts.length; i++) {
             IStakeCredit credit = IStakeCredit(creditContracts[i]);
-            totalBnb += credit.getPooledBNB(address(this)) + credit.lockedBNBs(address(this), 0);
+            if (creditStates[address(credit)]) {
+                totalBnb += credit.getPooledBNB(address(this)) + credit.lockedBNBs(address(this), 0);
+            }
         }
         return totalBnb;
     }
