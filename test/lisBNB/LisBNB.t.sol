@@ -6,6 +6,8 @@ import {console} from "forge-std/console.sol";
 import {ListaStakeManager} from "../../contracts/ListaStakeManager.sol";
 import {SLisBNB} from "../../contracts/SLisBNB.sol";
 import {LisBNB} from "../../contracts/LisBNB.sol";
+import {IStakeCredit} from "../../contracts/interfaces/IStakeCredit.sol";
+import {IStakeManager} from "../../contracts/interfaces/IStakeManager.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract LisBNBTest is Test {
@@ -59,87 +61,109 @@ contract LisBNBTest is Test {
 
     }
 
-    function test_compoundRewards() public {
-        uint256 totalBnbInValidator = 101 ether;
-        uint256 totalDelegated = 100 ether;
-        uint256 totalFee = 0.1 ether;
-
-        vm.mockCall(
-            address(manager),
-            abi.encodeWithSelector(manager.getTotalBnbInValidators.selector),
-            abi.encode(totalBnbInValidator)
-        );
-        vm.deal(bot, 100 ether);
-
-        assertEq(manager.getTotalBnbInValidators(), totalBnbInValidator);
-
-        stdstore.target(address(manager)).sig("totalDelegated()").checked_write(totalDelegated);
-        assertEq(manager.totalDelegated(), totalDelegated);
-        stdstore.target(address(manager)).sig("totalFee()").checked_write(totalFee);
-
-        assertEq(manager.totalFee(), totalFee);
-        vm.prank(bot);
-        manager.compoundRewards();
-
-        console.log("totalDelegated: %d", manager.totalDelegated());
-        console.log("totalFee: %d", manager.totalFee());
-        console.log("totalBnbInValidator: %d", manager.getTotalBnbInValidators());
-        // totalProfit = 101 - 100 - 0.1 = 0.9
-        // fee = 0.9 * 5 / 100 = 0.045
-        // totalFee = 0.1 + 0.045 = 0.145
-        // totalDelegated = 100 + 0.9 - 0.045 = 100.855
-        vm.assertEq(manager.totalFee(), 0.145 ether);
-        vm.assertEq(manager.totalDelegated(), 100.855 ether);
+    function test_nameAndSymbol() public {
+        assertEq(lisBNB.name(), "Lista BNB");
+        assertEq(lisBNB.symbol(), "lisBNB");
     }
 
-
-    function test_compoundRewardsRevert() public {
-        uint256 totalBnbInValidator = 99 ether;
-        uint256 totalDelegated = 100 ether;
-        uint256 totalFee = 0.1 ether;
-
-        vm.mockCall(
-            address(manager),
-            abi.encodeWithSelector(manager.getTotalBnbInValidators.selector),
-            abi.encode(totalBnbInValidator)
-        );
-        vm.deal(bot, 100 ether);
-
-        assertEq(manager.getTotalBnbInValidators(), totalBnbInValidator);
-
-        stdstore.target(address(manager)).sig("totalDelegated()").checked_write(totalDelegated);
-        assertEq(manager.totalDelegated(), totalDelegated);
-        stdstore.target(address(manager)).sig("totalFee()").checked_write(totalFee);
-
-        assertEq(manager.totalFee(), totalFee);
+    function test_depositV2() public {
+        uint256 balance = 1000 ether;
+        uint256 amount = 100 ether;
+        vm.deal(bot, balance);
         vm.prank(bot);
 
-        vm.expectRevert("No new fee to compound");
-        manager.compoundRewards();
+        uint256 beforeAmountToDelegate = manager.amountToDelegate();
+
+        vm.prank(bot);
+        manager.depositV2{value: amount}();
+
+        uint256 afterAmountToDelegate = manager.amountToDelegate();
+        console.log("lisBNB: %d", lisBNB.balanceOf(bot));
+        console.log("amountToDelegate: %v", afterAmountToDelegate - beforeAmountToDelegate);
+
+        assertEq(lisBNB.balanceOf(bot), amount);
+        assertEq(afterAmountToDelegate - beforeAmountToDelegate, amount);
     }
 
-    function test_claimFee() public {
-        uint256 totalFee = 1 ether;
-
-        vm.deal(bot, 100 ether);
+    function test_stake() public {
+        uint256 balance = 1000 ether;
+        uint256 amount = 100 ether;
+        uint256 stakeAmount = 50 ether;
+        vm.deal(bot, balance);
         vm.prank(bot);
-        vm.expectRevert("No fee to claim");
-        manager.claimFee();
+        manager.depositV2{value: amount}();
 
-        stdstore.target(address(manager)).sig("totalFee()").checked_write(totalFee);
-        assertEq(manager.totalFee(), totalFee);
-        uint256 amountSlisBNB = manager.convertBnbToSnBnb(totalFee);
-        console.log("aaa");
+        uint slisBNBAmount = manager.convertBnbToSnBnb(stakeAmount);
 
         vm.prank(bot);
-        manager.claimFee();
+        manager.stake(stakeAmount);
+        console.log("lisBNB: %d", lisBNB.balanceOf(bot));
+        console.log("slisBNB: %d", snBNB.balanceOf(bot));
 
-        console.log("totalDelegated: %d", manager.totalDelegated());
-        console.log("totalFee: %d", manager.totalFee());
-        console.log("amountSlisBNB: %d", snBNB.balanceOf(bot));
+        assertEq(lisBNB.balanceOf(bot), amount - stakeAmount);
+        assertEq(snBNB.balanceOf(bot), slisBNBAmount);
 
-        assertEq(manager.totalFee(), 0);
-        assertEq(manager.totalDelegated(), totalFee);
-        assertEq(snBNB.balanceOf(bot), amountSlisBNB);
+        slisBNBAmount += manager.convertBnbToSnBnb(stakeAmount);
+        vm.prank(bot);
+        manager.stake(stakeAmount);
+        console.log("lisBNB: %d", lisBNB.balanceOf(bot));
+        console.log("slisBNB: %d", snBNB.balanceOf(bot));
+
+        assertEq(lisBNB.balanceOf(bot), amount - stakeAmount*2);
+        assertEq(snBNB.balanceOf(bot), slisBNBAmount);
+    }
+
+    function test_unstake() public {
+        uint256 balance = 1000 ether;
+        uint256 amount = 100 ether;
+        uint256 stakeAmount = 50 ether;
+        uint256 unstakeAmount = 10 ether;
+        vm.deal(bot, balance);
+        vm.prank(bot);
+        manager.depositV2{value: amount}();
+
+        vm.prank(bot);
+        manager.stake(stakeAmount);
+
+        uint256 beforeLisBNB = lisBNB.balanceOf(bot);
+        uint256 beforeSlisBNB = snBNB.balanceOf(bot);
+        uint256 mintLisBNB = manager.convertSnBnbToBnb(unstakeAmount);
+        vm.prank(bot);
+        manager.unstake(unstakeAmount);
+        uint256 afterLisBNB = lisBNB.balanceOf(bot);
+        uint256 afterSlisBNB = snBNB.balanceOf(bot);
+
+        assertEq(afterLisBNB - beforeLisBNB, mintLisBNB);
+        assertEq(beforeSlisBNB - afterSlisBNB, unstakeAmount);
+    }
+
+    function test_requestWithdrawByLisBNB() public {
+        uint256 balance = 1000 ether;
+        uint256 amount = 100 ether;
+        uint256 depositV1Amount = 1 ether;
+        uint256 withdrawAmount = 10 ether;
+
+        vm.deal(bot, balance);
+        vm.prank(bot);
+        manager.deposit{value: depositV1Amount}();
+
+        vm.prank(bot);
+        manager.depositV2{value: amount}();
+
+        uint256 beforeLisBNB = lisBNB.balanceOf(bot);
+
+        uint256 slisBNBAmount = manager.convertBnbToSnBnb(withdrawAmount);
+        vm.prank(bot);
+        manager.requestWithdrawByLisBnb(withdrawAmount);
+        uint256 afterLisBNB = lisBNB.balanceOf(bot);
+
+        console.log("lisBNB: %d", lisBNB.balanceOf(bot));
+
+        assertEq(beforeLisBNB - afterLisBNB, withdrawAmount);
+
+        IStakeManager.WithdrawalRequest[] memory requests = manager.getUserWithdrawalRequests(bot);
+        console.log("amountInSnBNB: %d startTime: %d uuid: %d", requests[0].amountInSnBnb, requests[0].startTime, requests[0].uuid);
+        assertEq(requests.length, 1);
+        assertEq(requests[0].amountInSnBnb, slisBNBAmount);
     }
 }
