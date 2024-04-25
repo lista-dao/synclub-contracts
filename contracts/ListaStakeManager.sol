@@ -39,7 +39,6 @@ contract ListaStakeManager is
 
     address private slisBnb;
     address private bscValidator; // the initial BSC validator funds will be migrated to
-    address private lisBnb;
 
     mapping(uint256 => BotUndelegateRequest)
         private uuidToBotUndelegateRequestMap; // no use in new logic
@@ -70,6 +69,7 @@ contract ListaStakeManager is
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
 
     uint256 public totalFee;
+    address public lisBnb;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
