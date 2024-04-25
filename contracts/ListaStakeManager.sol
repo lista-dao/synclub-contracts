@@ -954,4 +954,9 @@ contract ListaStakeManager is
         }
         return totalBnb;
     }
+
+    function setLisBNB(address token) external onlyManager {
+        require(token != address(0), "zero address provided");
+        lisBnb = token;
+    }
 }
