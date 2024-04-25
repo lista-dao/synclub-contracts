@@ -314,7 +314,6 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
-        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
 
@@ -399,7 +398,6 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
-        revert("Not supported");
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         require(undelegatedAmount > 0, "Nothing to undelegate");
         for (uint256 i = confirmedUndelegatedUUID; i <= nextUndelegateUUID - 1; i++) {
