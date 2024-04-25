@@ -178,7 +178,7 @@ contract ListaStakeManager is
         require(validators[dstValidator], "Inactive dst validator");
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
-        uint256 feeCharge = getRedelegateFee(convertSharesToBnb(srcValidator, shares));
+        uint256 feeCharge = getRedelegateFee(_amount);
         require(_amount >= feeCharge, "Insufficient Fee");
 
         // redelegate through native staking contract
@@ -800,14 +800,14 @@ contract ListaStakeManager is
         return amountInBnb;
     }
 
-    function getRedelegateFee(uint256 bnbAmount)
+    function getRedelegateFee(uint256 _amount)
         public
         view
         override
         returns (uint256)
     {
         IStakeHub stakeHub = IStakeHub(STAKE_HUB);
-        return bnbAmount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
+        return _amount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
     }
 
     /**
