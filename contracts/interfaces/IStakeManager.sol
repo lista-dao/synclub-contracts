@@ -34,13 +34,21 @@ interface IStakeManager {
 
     function deposit() external payable;
 
+    function depositV2() external payable returns (uint256 _amountInLisBnb);
+
+    function stake(uint256 _amountInLisBnb) external returns (uint256 _amountInSlisBnb);
+
+    function unstake(uint256 _amountInSlisBnb) external returns (uint256 _amountInLisBnb);
+
     function delegateTo(address validator, uint256 amount)
         external;
 
     function redelegate(address srcValidator, address dstValidator, uint256 shares)
-        external payable;
+        external;
 
     function requestWithdraw(uint256 _amountInSnBnb) external;
+
+    function requestWithdrawByLisBnb(uint256 _amountInLisBnb) external;
 
     function claimWithdraw(uint256 _idx) external;
 
@@ -90,8 +98,7 @@ interface IStakeManager {
         returns (
             address _manager,
             address _snBnb,
-            address _bcValidator,
-            address[] memory _credits
+            address _bcValidator
         );
 
     function getBotUndelegateRequest(uint256 _uuid)
@@ -136,8 +143,12 @@ interface IStakeManager {
         view
         returns (uint256 _amount);
 
-    function updateFee() external;
+    function compoundRewards() external;
+
     function claimFee() external;
+
+    function getTotalBnbInValidators() external returns (uint256);
+
     function getRedelegateFee(uint256 bnbAmount)
         external
         view

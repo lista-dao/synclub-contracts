@@ -12,6 +12,7 @@ import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
 import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
+import {ILisBNB} from "./interfaces/ILisBNB.sol";
 
 /**
  * @title Stake Manager Contract
@@ -38,6 +39,7 @@ contract ListaStakeManager is
 
     address private slisBnb;
     address private bscValidator; // the initial BSC validator funds will be migrated to
+    address private lisBnb;
 
     mapping(uint256 => BotUndelegateRequest)
         private uuidToBotUndelegateRequestMap; // no use in new logic
@@ -64,6 +66,7 @@ contract ListaStakeManager is
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
     address[] public creditContracts;
+    mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `reveive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
 
     uint256 public totalFee;
@@ -138,6 +141,41 @@ contract ListaStakeManager is
     }
 
     /**
+     * @dev Allows user to deposit Bnb at BSC and mints lisBnb for the user
+    */
+    function depositV2() external payable override whenNotPaused returns (uint256 _amountInLisBnb) {
+        uint256 amount = msg.value;
+        require(amount > 0, "Invalid Amount");
+
+        amountToDelegate += amount;
+
+        ILisBNB(lisBnb).mint(msg.sender, amount);
+
+        _amountInLisBnb = amount;
+        emit Deposit(msg.sender, amount);
+    }
+
+    function stake(uint256 _amountInLisBnb) external override whenNotPaused returns (uint256 _amountInSlisBnb) {
+        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
+        _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
+
+        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
+
+        ISLisBNB(slisBnb).mint(msg.sender, _amountInLisBnb);
+    }
+
+    function unstake(uint256 _amountInSlisBnb) external override whenNotPaused returns (uint256 _amountInLisBnb) {
+        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
+        _amountInLisBnb = convertSnBnbToBnb(_amountInSlisBnb);
+        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
+
+        ISLisBNB(slisBnb).burn(msg.sender, _amountInSlisBnb);
+
+        ILisBNB(lisBnb).mint(msg.sender, _amountInLisBnb);
+    }
+
+    /**
      * @dev Allows bot to delegate users' funds to given BSC validator
      * @param _validator - Operator address of the BSC validator to delegate to
      * @param _amount - Amount of BNB to delegate
@@ -169,7 +207,6 @@ contract ListaStakeManager is
      */
     function redelegate(address srcValidator, address dstValidator, uint256 _amount)
         external
-        payable
         override
         whenNotPaused
         onlyManager
@@ -178,25 +215,16 @@ contract ListaStakeManager is
         require(validators[dstValidator], "Inactive dst validator");
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
-        uint256 feeCharge = getRedelegateFee(convertSharesToBnb(srcValidator, shares));
-        require(msg.value >= feeCharge, "Insufficient Fee");
+        uint256 feeCharge = getRedelegateFee(_amount);
+        require(_amount >= feeCharge, "Insufficient Fee");
 
         // redelegate through native staking contract
-        IStakeHub(STAKE_HUB).redelegate{value: msg.value}(srcValidator, dstValidator, shares, delegateVotePower);
+        IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
 
         emit ReDelegate(srcValidator, dstValidator, shares);
     }
 
-    /**
-     * @dev Allow users to request for unstake/withdraw funds
-     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
-     * @notice User must have approved this contract to spend SlisBnb
-     */
-    function requestWithdraw(uint256 _amountInSlisBnb)
-        external
-        override
-        whenNotPaused
-    {
+    function _addWithdrawRequest(uint256 _amountInSlisBnb) internal {
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
@@ -219,7 +247,19 @@ contract ListaStakeManager is
             })
         );
         requestIndexMap[requestUUID] = withdrawalQueue.length - 1;
+    }
 
+    /**
+     * @dev Allow users to request for unstake/withdraw funds
+     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend SlisBnb
+     */
+    function requestWithdraw(uint256 _amountInSlisBnb)
+        external
+        override
+        whenNotPaused
+    {
+        _addWithdrawRequest(_amountInSlisBnb);
         IERC20Upgradeable(slisBnb).safeTransferFrom(
             msg.sender,
             address(this),
@@ -229,7 +269,27 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Users uses this function to claim the requested withdrawals
+     * @dev Allows user to request for unstake/withdraw funds
+     * @param _amountInLisBnb - Amount of lisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend lisBnb
+    */
+    function requestWithdrawByLisBnb(uint256 _amountInLisBnb)
+    external
+    override
+    whenNotPaused
+    {
+        require(_amountInLisBnb > 0, "Invalid lisBNB Amount");
+        uint256 _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
+
+        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
+
+        ISLisBNB(slisBnb).mint(address(this), _amountInSlisBnb);
+
+        _addWithdrawRequest(_amountInSlisBnb);
+    }
+
+    /* @dev Users uses this function to claim the requested withdrawals
      * @param _idx - index of the request of getUserWithdrawalRequests()
      */
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
@@ -336,7 +396,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Claim unbond BNB and rewards from the validator
+     * @dev Claim unbonded BNB and rewards from the validator
      * @param _validator - The operator address of the validator
      * @return _uuid - the next confirmed request uuid
      * @return _amount - the amount of BNB claimed, staking rewards included
@@ -357,12 +417,10 @@ contract ListaStakeManager is
         uint256 undelegatedAmount = address(this).balance - balanceBefore;
 
         undelegatedQuota += undelegatedAmount;
-        uint256 _slisBnbToBurn = convertBnbToSnBnb(undelegatedAmount);
-
-        ISLisBNB(slisBnb).burn(address(this), _slisBnbToBurn);
-        totalDelegated -= undelegatedAmount;
         unbondingBnb -= undelegatedAmount;
 
+        uint256 coveredAmount = 0;
+        uint256 coveredSlisBnbAmount = 0;
         uint256 oldLastUUID = requestUUID;
 
         if (withdrawalQueue.length != 0) {
@@ -372,10 +430,13 @@ contract ListaStakeManager is
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
-                return (0, 0);
+                emit ClaimUndelegatedFrom(_validator, nextConfirmedRequestUUID, undelegatedAmount);
+                return (nextConfirmedRequestUUID, undelegatedAmount);
             }
             botRequest.endTime = block.timestamp;
             undelegatedQuota -= botRequest.amount;
+            coveredAmount += botRequest.amount;
+            coveredSlisBnbAmount += botRequest.amountInSnBnb;
             ++nextConfirmedRequestUUID;
         }
 
@@ -386,7 +447,14 @@ contract ListaStakeManager is
                 break;
             }
             undelegatedQuota -= req.amount;
+            coveredAmount += req.amount;
+            coveredSlisBnbAmount += req.amountInSlisBnb;
             ++nextConfirmedRequestUUID;
+        }
+
+        totalDelegated -= coveredAmount;
+        if (coveredSlisBnbAmount > 0) {
+            ISLisBNB(slisBnb).burn(address(this), coveredSlisBnbAmount);
         }
 
         _uuid = nextConfirmedRequestUUID;
@@ -456,20 +524,25 @@ contract ListaStakeManager is
      */
     function syncCredits(address _validator, bool toRemove) internal {
         address credit = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
-        bool found = false;
-        for (uint256 i = 0; i < creditContracts.length; i++) {
-            if (creditContracts[i] == credit) {
-                found = true;
-                if (toRemove) {
+        if (toRemove) {
+            delete creditStates[credit];
+
+            for (uint256 i = 0; i < creditContracts.length; i++) {
+                if (creditContracts[i] == credit) {
                     creditContracts[i] = creditContracts[creditContracts.length - 1];
                     creditContracts.pop();
+                    break;
                 }
-                break;
             }
+            emit SyncCreditContract(_validator, credit, toRemove);
+            return;
+        } else if (creditStates[credit]) {
+            // do nothing if credit already exists
+            return;
         }
-        if (!found && !toRemove) {
-            creditContracts.push(credit);
-        }
+
+        creditStates[credit] = true;
+        creditContracts.push(credit);
 
         emit SyncCreditContract(_validator, credit, toRemove);
     }
@@ -548,6 +621,11 @@ contract ListaStakeManager is
         emit WhitelistValidator(_address);
     }
 
+    /**
+     * @dev Disables the validator from the contract.
+     *      Upon disabled, bot can only undelegete the funds, delegation is not allowed
+     * @param _address - the operator address of the validator
+     */
     function disableValidator(address _address)
         external
         override
@@ -556,7 +634,6 @@ contract ListaStakeManager is
         require(validators[_address], "Validator is not active");
 
         validators[_address] = false;
-        syncCredits(_address, true);
 
         emit DisableValidator(_address);
     }
@@ -576,7 +653,7 @@ contract ListaStakeManager is
     }
 
     function getTotalPooledBnb() public view override returns (uint256) {
-        return (amountToDelegate + totalDelegated);
+        return (amountToDelegate + totalDelegated - ILisBNB(lisBnb).totalSupply());
     }
 
     function getContracts()
@@ -586,14 +663,12 @@ contract ListaStakeManager is
         returns (
             address _manager,
             address _slisBnb,
-            address _bscValidator,
-            address[] memory _creditContracts
+            address _bscValidator
         )
     {
         _manager = manager;
         _slisBnb = slisBnb;
         _bscValidator = bscValidator;
-        _creditContracts = creditContracts;
     }
 
 
@@ -785,14 +860,14 @@ contract ListaStakeManager is
         return amountInBnb;
     }
 
-    function getRedelegateFee(uint256 bnbAmount)
+    function getRedelegateFee(uint256 _amount)
         public
         view
         override
         returns (uint256)
     {
         IStakeHub stakeHub = IStakeHub(STAKE_HUB);
-        return bnbAmount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
+        return _amount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
     }
 
     /**
@@ -809,19 +884,8 @@ contract ListaStakeManager is
         delegateVotePower = !delegateVotePower;
     }
 
-    function isCreditContract(address sender) internal view returns (bool) {
-        bool isCredit = false;
-        for (uint256 i = 0; i < creditContracts.length; i++) {
-            if (creditContracts[i] == sender) {
-                isCredit = true;
-                break;
-            }
-        }
-        return isCredit;
-    }
-
     receive() external payable {
-        if ((!isCreditContract(msg.sender)) && msg.sender != redirectAddress) {
+        if ((!creditStates[msg.sender]) && msg.sender != redirectAddress) {
             AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
         }
     }
@@ -837,9 +901,9 @@ contract ListaStakeManager is
     }
 
     /**
-    * @dev Allows bot to compound rewards
+     * @dev Allows bot to compound rewards
      */
-    function updateFee()
+    function compoundRewards()
     external
     override
     whenNotPaused
@@ -848,7 +912,7 @@ contract ListaStakeManager is
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
-        require(totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
+        require(totalBNBInValidators >= totalDelegated && totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
         uint256 totalProfit = totalBNBInValidators - totalDelegated - totalFee;
         uint256 fee = 0;
         if (synFee > 0) {
@@ -862,6 +926,9 @@ contract ListaStakeManager is
         emit RewardsCompounded(fee);
     }
 
+    /**
+     * @dev Allows bot to claim fee
+     */
     function claimFee() external override whenNotPaused onlyRole(BOT) {
         require(totalFee > 0, "No fee to claim");
         require(revenuePool != address(0x0), "revenue pool not set");
@@ -874,12 +941,26 @@ contract ListaStakeManager is
         ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
     }
 
-    function getTotalBnbInValidators() public view returns (uint256) {
+    /**
+     * @dev Returns the total amount of BNB in all validators
+     */
+    function getTotalBnbInValidators() public view override returns (uint256) {
         uint256 totalBnb = 0;
         for (uint256 i = 0; i < creditContracts.length; i++) {
             IStakeCredit credit = IStakeCredit(creditContracts[i]);
-            totalBnb += credit.getPooledBNB(address(this)) + credit.lockedBNBs(address(this), 0);
+            if (creditStates[address(credit)]) {
+                totalBnb += credit.getPooledBNB(address(this)) + credit.lockedBNBs(address(this), 0);
+            }
         }
         return totalBnb;
+    }
+
+    /**
+     * @dev set the address of the lisBnb token
+     * @param token - the address of the lisBnb token
+     */
+    function setLisBNB(address token) external onlyManager {
+        require(token != address(0), "zero address provided");
+        lisBnb = token;
     }
 }
