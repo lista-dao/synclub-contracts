@@ -841,9 +841,9 @@ contract ListaStakeManager is
     }
 
     /**
-    * @dev Allows bot to compound rewards
+     * @dev Allows bot to compound rewards
      */
-    function updateFee()
+    function compoundRewards()
     external
     override
     whenNotPaused
@@ -852,7 +852,7 @@ contract ListaStakeManager is
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
-        require(totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
+        require(totalBNBInValidators >= totalDelegated && totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
         uint256 totalProfit = totalBNBInValidators - totalDelegated - totalFee;
         uint256 fee = 0;
         if (synFee > 0) {
@@ -866,6 +866,9 @@ contract ListaStakeManager is
         emit RewardsCompounded(fee);
     }
 
+    /**
+     * @dev Allows bot to claim fee
+     */
     function claimFee() external override whenNotPaused onlyRole(BOT) {
         require(totalFee > 0, "No fee to claim");
         require(revenuePool != address(0x0), "revenue pool not set");
@@ -878,7 +881,10 @@ contract ListaStakeManager is
         ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
     }
 
-    function getTotalBnbInValidators() public view returns (uint256) {
+    /**
+     * @dev Returns the total amount of BNB in all validators
+     */
+    function getTotalBnbInValidators() public view override returns (uint256) {
         uint256 totalBnb = 0;
         for (uint256 i = 0; i < creditContracts.length; i++) {
             IStakeCredit credit = IStakeCredit(creditContracts[i]);
