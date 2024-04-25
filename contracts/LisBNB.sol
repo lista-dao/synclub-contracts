@@ -9,10 +9,6 @@ import "./interfaces/ILisBNB.sol";
 contract LisBNB is ILisBNB, ERC20Upgradeable, AccessControlUpgradeable {
     address private stakeManager;
 
-    string private constant _name = "Lista BNB";
-
-    string private constant _symbol = "lisBNB";
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -20,19 +16,12 @@ contract LisBNB is ILisBNB, ERC20Upgradeable, AccessControlUpgradeable {
 
     function initialize(address _admin) external override initializer {
         __AccessControl_init();
-        __ERC20_init(_name, _symbol);
+        __ERC20_init("Lista BNB", "lisBNB");
+
 
         require(_admin != address(0), "zero address provided");
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
-    }
-
-    function name() public pure override returns (string memory) {
-        return _name;
-    }
-
-    function symbol() public pure override returns (string memory) {
-        return _symbol;
     }
 
     function mint(address _account, uint256 _amount)

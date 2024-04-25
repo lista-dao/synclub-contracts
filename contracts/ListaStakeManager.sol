@@ -158,19 +158,21 @@ contract ListaStakeManager is
     function stake(uint256 _amountInLisBnb) external override whenNotPaused returns (uint256 _amountInSlisBnb) {
         require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
         _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
 
-        ILisBNB(lisBnb).burn(msg.sender, _amountInSlisBnb);
+        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
 
-        ISLisBNB(slisBnb).mint(msg.sender, slisBnbToMint);
+        ISLisBNB(slisBnb).mint(msg.sender, _amountInLisBnb);
     }
 
     function unstake(uint256 _amountInSlisBnb) external override whenNotPaused returns (uint256 _amountInLisBnb) {
         require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
         _amountInLisBnb = convertSnBnbToBnb(_amountInSlisBnb);
+        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
 
         ISLisBNB(slisBnb).burn(msg.sender, _amountInSlisBnb);
 
-        ILisBNB(lisBnb).mint(msg.sender, lisBnbToMint);
+        ILisBNB(lisBnb).mint(msg.sender, _amountInLisBnb);
     }
 
     /**
@@ -222,16 +224,7 @@ contract ListaStakeManager is
         emit ReDelegate(srcValidator, dstValidator, shares);
     }
 
-    /**
-     * @dev Allow users to request for unstake/withdraw funds
-     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
-     * @notice User must have approved this contract to spend SlisBnb
-     */
-    function requestWithdraw(uint256 _amountInSlisBnb)
-        external
-        override
-        whenNotPaused
-    {
+    function _addWithdrawRequest(uint256 _amountInSlisBnb) internal {
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
@@ -254,7 +247,19 @@ contract ListaStakeManager is
             })
         );
         requestIndexMap[requestUUID] = withdrawalQueue.length - 1;
+    }
 
+    /**
+     * @dev Allow users to request for unstake/withdraw funds
+     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend SlisBnb
+     */
+    function requestWithdraw(uint256 _amountInSlisBnb)
+        external
+        override
+        whenNotPaused
+    {
+        _addWithdrawRequest(_amountInSlisBnb);
         IERC20Upgradeable(slisBnb).safeTransferFrom(
             msg.sender,
             address(this),
@@ -273,14 +278,15 @@ contract ListaStakeManager is
     override
     whenNotPaused
     {
-        require(_amountInLisBnb > 0, "Invalid Amount");
+        require(_amountInLisBnb > 0, "Invalid lisBNB Amount");
         uint256 _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
 
         ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
 
-        ISLisBNB(slisBnb).mint(msg.sender, _amountInSlisBnb);
+        ISLisBNB(slisBnb).mint(address(this), _amountInSlisBnb);
 
-        requestWithdraw(_amountInSlisBnb);
+        _addWithdrawRequest(_amountInSlisBnb);
     }
 
     /**
