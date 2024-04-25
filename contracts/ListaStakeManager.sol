@@ -169,7 +169,6 @@ contract ListaStakeManager is
      */
     function redelegate(address srcValidator, address dstValidator, uint256 _amount)
         external
-        payable
         override
         whenNotPaused
         onlyManager
@@ -179,10 +178,10 @@ contract ListaStakeManager is
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
         uint256 feeCharge = getRedelegateFee(convertSharesToBnb(srcValidator, shares));
-        require(msg.value >= feeCharge, "Insufficient Fee");
+        require(_amount >= feeCharge, "Insufficient Fee");
 
         // redelegate through native staking contract
-        IStakeHub(STAKE_HUB).redelegate{value: msg.value}(srcValidator, dstValidator, shares, delegateVotePower);
+        IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
 
         emit ReDelegate(srcValidator, dstValidator, shares);
     }

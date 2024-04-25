@@ -49,7 +49,7 @@ interface IStakeHub {
         address dstValidator,
         uint256 shares,
         bool delegateVotePower
-    ) external payable;
+    ) external;
 
     /**
      * @dev Claim the undelegated BNB from the pool after unbondPeriod

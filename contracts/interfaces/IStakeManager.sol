@@ -38,7 +38,7 @@ interface IStakeManager {
         external;
 
     function redelegate(address srcValidator, address dstValidator, uint256 shares)
-        external payable;
+        external;
 
     function requestWithdraw(uint256 _amountInSnBnb) external;
 
