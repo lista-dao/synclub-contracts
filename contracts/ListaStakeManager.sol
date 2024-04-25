@@ -290,27 +290,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows user to request for unstake/withdraw funds
-     * @param _amountInLisBnb - Amount of lisBnb to swap for withdraw
-     * @notice User must have approved this contract to spend lisBnb
-    */
-    function requestWithdrawByLisBnb(uint256 _amountInLisBnb)
-    external
-    override
-    whenNotPaused
-    {
-        require(_amountInLisBnb > 0, "Invalid lisBNB Amount");
-        uint256 _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
-        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
-
-        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
-
-        ISLisBNB(slisBnb).mint(address(this), _amountInSlisBnb);
-
-        _addWithdrawRequest(_amountInSlisBnb);
-    }
-
-    /* @dev Users uses this function to claim the requested withdrawals
+     * @dev Users uses this function to claim the requested withdrawals
      * @param _idx - index of the request of getUserWithdrawalRequests()
      */
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
