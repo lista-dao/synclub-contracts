@@ -145,7 +145,7 @@ contract ListaStakeManager is
     */
     function depositV2() external payable override whenNotPaused returns (uint256 _amountInLisBnb) {
         uint256 amount = msg.value;
-        require(amount > 0, "Invalid Amount");
+        require(amount > 0, "invalid Amount");
 
         amountToDelegate += amount;
 
@@ -156,9 +156,9 @@ contract ListaStakeManager is
     }
 
     function stake(uint256 _amountInLisBnb) external override whenNotPaused returns (uint256 _amountInSlisBnb) {
-        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
+        require(_amountInLisBnb > 0, "invalid lisBnb Amount");
         _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
-        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
+        require(_amountInSlisBnb > 0, "invalid SlisBnb Amount");
 
         ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
 
@@ -166,7 +166,7 @@ contract ListaStakeManager is
     }
 
     function unstake(uint256 _amountInSlisBnb) external override whenNotPaused returns (uint256 _amountInLisBnb) {
-        require(_amountInSlisBnb > 0, "Invalid SlisBnb Amount");
+        require(_amountInSlisBnb > 0, "invalid SlisBnb Amount");
         _amountInLisBnb = convertSnBnbToBnb(_amountInSlisBnb);
         require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
 
