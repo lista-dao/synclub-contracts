@@ -143,8 +143,12 @@ interface IStakeManager {
         view
         returns (uint256 _amount);
 
-    function updateFee() external;
+    function compoundRewards() external;
+
     function claimFee() external;
+
+    function getTotalBnbInValidators() external returns (uint256);
+
     function getRedelegateFee(uint256 bnbAmount)
         external
         view
