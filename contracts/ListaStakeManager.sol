@@ -69,7 +69,7 @@ contract ListaStakeManager is
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
 
     uint256 public totalFee;
-    address private lisBnb;
+    address public lisBnb;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
