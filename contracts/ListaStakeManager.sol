@@ -955,6 +955,10 @@ contract ListaStakeManager is
         return totalBnb;
     }
 
+    /**
+     * @dev set the address of the lisBnb token
+     * @param token - the address of the lisBnb token
+     */
     function setLisBNB(address token) external onlyManager {
         require(token != address(0), "zero address provided");
         lisBnb = token;
