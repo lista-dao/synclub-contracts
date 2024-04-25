@@ -98,8 +98,7 @@ interface IStakeManager {
         returns (
             address _manager,
             address _snBnb,
-            address _bcValidator,
-            address[] memory _credits
+            address _bcValidator
         );
 
     function getBotUndelegateRequest(uint256 _uuid)
@@ -143,6 +142,13 @@ interface IStakeManager {
         external
         view
         returns (uint256 _amount);
+
+    function updateFee() external;
+    function claimFee() external;
+    function getRedelegateFee(uint256 bnbAmount)
+        external
+        view
+        returns (uint256);
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
