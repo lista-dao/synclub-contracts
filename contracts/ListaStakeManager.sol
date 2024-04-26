@@ -58,8 +58,7 @@ contract ListaStakeManager is
     mapping(address => bool) public validators;
     bool public delegateVotePower; // delegate voting power to validator or not
 
-    uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
-    uint256 public nextUndelegatedRequestIndex; // the index of next request to be delegated in queue
+    uint256 public undelegatedQuota; // the amount Bnb received but not claimable yet
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
@@ -287,7 +286,7 @@ contract ListaStakeManager is
         returns (uint256 _uuid, uint256 _amount)
     {
         require(totalSnBnbToBurn > 0, "Nothing to undelegate");
-        _uuid = requestUUID++; // nextUndelegateUUID renamed to requestUUID
+        _uuid = requestUUID; // pin uuid to the last confirmed uuid+1
 
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         uint256 bnbAmount_ = convertSnBnbToBnb(totalSlisBnbToBurn_);
@@ -329,7 +328,7 @@ contract ListaStakeManager is
         uint256 _actualBnbAmount = convertSharesToBnb(_operator, _shares);
 
         unbondingBnb += _actualBnbAmount;
-        IStakeHub(STAKE_HUB).undelegate(bscValidator, _shares);
+        IStakeHub(STAKE_HUB).undelegate(_operator, _shares);
 
         emit UndelegateFrom(_operator, _actualBnbAmount, _shares);
         return getAmountToUndelegate();
@@ -705,11 +704,12 @@ contract ListaStakeManager is
      * @return _amountToUndelegate Bnb amount to be undelegated by bot
      */
     function getAmountToUndelegate() public view override returns (uint256 _amountToUndelegate) {
-        if (nextUndelegatedRequestIndex == withdrawalQueue.length) {
+        uint256 nextIndex = requestIndexMap[nextConfirmedRequestUUID];
+        if (nextIndex == withdrawalQueue.length) {
             return 0;
         }
         uint256 totalAmountToWithdraw = 0;
-        for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
+        for (uint256 i = nextIndex; i < withdrawalQueue.length; ++i) {
             UserRequest storage req = withdrawalQueue[i];
             uint256 amount = req.amount;
             totalAmountToWithdraw += amount;
