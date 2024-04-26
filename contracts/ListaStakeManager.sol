@@ -31,7 +31,7 @@ contract ListaStakeManager is
     uint256 public amountToDelegate; // total BNB to delegate for next batch
 
     uint256 public requestUUID; // global UUID for each user withdrawal request
-    uint256 public nextConfirmedRequestUUID; // next confirmed UUID for user withdrawal requests
+    uint256 public nextConfirmedRequestUUID; // req whose uuid < nextConfirmedRequestUUID is claimable
 
     uint256 public reserveAmount; // buffer amount for undelegation
     uint256 public totalReserveAmount;
@@ -286,7 +286,8 @@ contract ListaStakeManager is
         returns (uint256 _uuid, uint256 _amount)
     {
         require(totalSnBnbToBurn > 0, "Nothing to undelegate");
-        _uuid = requestUUID; // pin uuid to the last confirmed uuid+1
+        _uuid = withdrawalQueue.length != 0 ? withdrawalQueue[0].uuid - 1: requestUUID;
+        // Pin _uuid to the last `nextUndelegateUUID` in old version
 
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         uint256 bnbAmount_ = convertSnBnbToBnb(totalSlisBnbToBurn_);
