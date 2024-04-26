@@ -705,9 +705,6 @@ contract ListaStakeManager is
      */
     function getAmountToUndelegate() public view override returns (uint256 _amountToUndelegate) {
         uint256 nextIndex = requestIndexMap[nextConfirmedRequestUUID];
-        if (nextIndex == withdrawalQueue.length) {
-            return 0;
-        }
         uint256 totalAmountToWithdraw = 0;
         for (uint256 i = nextIndex; i < withdrawalQueue.length; ++i) {
             UserRequest storage req = withdrawalQueue[i];
@@ -716,6 +713,8 @@ contract ListaStakeManager is
         }
 
         _amountToUndelegate = totalAmountToWithdraw - unbondingBnb;
+
+        return _amountToUndelegate >= undelegatedQuota ? _amountToUndelegate - undelegatedQuota : 0;
     }
 
     /**
