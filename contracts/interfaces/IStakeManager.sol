@@ -20,6 +20,8 @@ interface IStakeManager {
         uint256 uuid;
         uint256 amount;
         uint256 amountInSlisBnb;
+        uint256 totalAmount;
+        uint256 totalAmountInSlisBnb;
     }
 
     function initialize(
