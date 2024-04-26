@@ -74,7 +74,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @param _slisBnb - Address of SlisBnb Token on Binance Smart Chain
+     * @param _slisBnb - Address of SlisBnb Token on BNB Smart Chain
      * @param _admin - Address of the admin
      * @param _manager - Address of the manager
      * @param _bot - Address of the Bot
@@ -177,8 +177,6 @@ contract ListaStakeManager is
         require(validators[dstValidator], "Inactive dst validator");
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
-        uint256 feeCharge = getRedelegateFee(_amount);
-        require(_amount >= feeCharge, "Insufficient Fee");
 
         // redelegate through native staking contract
         IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
