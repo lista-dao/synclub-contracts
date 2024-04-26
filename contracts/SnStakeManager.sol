@@ -61,7 +61,7 @@ contract SnStakeManager is
     }
 
     /**
-     * @param _snBnb - Address of SnBnb Token on Binance Smart Chain
+     * @param _snBnb - Address of SnBnb Token on BNB Smart Chain
      * @param _admin - Address of the admin
      * @param _manager - Address of the manager
      * @param _bot - Address of the Bot
@@ -435,7 +435,6 @@ contract SnStakeManager is
                 storage botUndelegateRequest = uuidToBotUndelegateRequestMap[i];
             botUndelegateRequest.endTime = block.timestamp;
             confirmedUndelegatedUUID++;
-            require(remainingAmount >= botUndelegateRequest.amount, "Wrong remaining amount");
             remainingAmount -= botUndelegateRequest.amount;
         }
         _uuid = confirmedUndelegatedUUID;
