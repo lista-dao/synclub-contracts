@@ -766,13 +766,11 @@ contract ListaStakeManager is
      * @return _amountToUndelegate Bnb amount to be undelegated by bot
      */
     function getAmountToUndelegate() public view override returns (uint256 _amountToUndelegate) {
-        uint256 nextIndex = requestIndexMap[nextConfirmedRequestUUID];
-        uint256 totalAmountToWithdraw = 0;
-        for (uint256 i = nextIndex; i < withdrawalQueue.length; ++i) {
-            UserRequest storage req = withdrawalQueue[i];
-            uint256 amount = req.amount;
-            totalAmountToWithdraw += amount;
+        if (withdrawalQueue.length == 0 || withdrawalQueue[withdrawalQueue.length - 1].uuid < nextConfirmedRequestUUID) {
+            return 0;
         }
+        uint256 nextIndex = requestIndexMap[nextConfirmedRequestUUID];
+        uint256 totalAmountToWithdraw = withdrawalQueue[withdrawalQueue.length - 1].totalAmount - withdrawalQueue[nextIndex].totalAmount + withdrawalQueue[nextIndex].amount;
 
         _amountToUndelegate = totalAmountToWithdraw - unbondingBnb;
 
