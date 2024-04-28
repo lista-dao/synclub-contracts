@@ -420,10 +420,7 @@ contract ListaStakeManager is
      */
     function binarySearchCoveredMaxIndex(uint256 _bnbAmount) public view override returns(uint256) {
         require(withdrawalQueue.length != 0 && withdrawalQueue[0].uuid <= nextConfirmedRequestUUID, "No new requests or old requests have not been fully covered");
-        if (nextConfirmedRequestUUID > withdrawalQueue[withdrawalQueue.length - 1].uuid) {
-            // all requests have been covered
-            return 0;
-        }
+        require(nextConfirmedRequestUUID <= withdrawalQueue[withdrawalQueue.length - 1].uuid, "All requests have been covered");
         uint256 startIndex = requestIndexMap[nextConfirmedRequestUUID];
         uint256 endIndex = withdrawalQueue.length - 1;
         uint256 startAmount = withdrawalQueue[startIndex].amount;
