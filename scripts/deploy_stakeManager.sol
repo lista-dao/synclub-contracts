@@ -11,6 +11,7 @@ contract DeployStakeManager is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+        address admin = vm.envAddress("ADMIN_ADDRESS");
         vm.startBroadcast(deployerPrivateKey);
         ListaStakeManager manager = new ListaStakeManager();
 
@@ -20,11 +21,11 @@ contract DeployStakeManager is Script {
         bytes memory data = abi.encodeWithSelector(
         ListaStakeManager.initialize.selector,
             slisBNB,
-            deployer,
-            deployer,
-            deployer,
+            admin,
+            admin,
+            admin,
             5e8,
-            deployer,
+            admin,
             bscValidator
         );
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(manager), deployer, data);
