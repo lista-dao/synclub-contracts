@@ -51,8 +51,7 @@ interface IStakeManager {
         returns (uint256 _uuid, uint256 _shares);
 
     function undelegateFrom(address _operator, uint256 _amount)
-        external
-        returns (uint256 bnbToUndelegate);
+        external;
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
 
