@@ -321,6 +321,7 @@ contract ListaStakeManager is
      * @dev Bot uses this function to undelegate BNB from a validator
      * @param _operator - Operator address of validator to undelegate from
      * @param _amount - Amount of bnb to undelegate
+     * @return _actualBnbAmount - the actual amount of BNB to be undelegated
      * @notice Bot should invoke `undelegate()` first to process old requests before calling this function
      */
     function undelegateFrom(address _operator, uint256 _amount)
@@ -328,11 +329,12 @@ contract ListaStakeManager is
         override
         whenNotPaused
         onlyRole(BOT)
+        returns (uint256 _actualBnbAmount)
     {
         require(totalSnBnbToBurn == 0, "Old requests should be processed first");
         require(_amount <= (getAmountToUndelegate() + reserveAmount), "Given bnb amount is too large");
         uint256 _shares = convertBnbToShares(_operator, _amount);
-        uint256 _actualBnbAmount = convertSharesToBnb(_operator, _shares);
+        _actualBnbAmount = convertSharesToBnb(_operator, _shares);
 
         unbondingBnb += _actualBnbAmount;
         IStakeHub(STAKE_HUB).undelegate(_operator, _shares);
@@ -772,7 +774,7 @@ contract ListaStakeManager is
         uint256 nextIndex = requestIndexMap[nextConfirmedRequestUUID];
         uint256 totalAmountToWithdraw = withdrawalQueue[withdrawalQueue.length - 1].totalAmount - withdrawalQueue[nextIndex].totalAmount + withdrawalQueue[nextIndex].amount;
 
-        _amountToUndelegate = totalAmountToWithdraw - unbondingBnb;
+        _amountToUndelegate = totalAmountToWithdraw > unbondingBnb ? totalAmountToWithdraw - unbondingBnb : 0;
 
         return _amountToUndelegate >= undelegatedQuota ? _amountToUndelegate - undelegatedQuota : 0;
     }
