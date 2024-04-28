@@ -20,6 +20,8 @@ interface IStakeManager {
         uint256 uuid;
         uint256 amount;
         uint256 amountInSlisBnb;
+        uint256 totalAmount;
+        uint256 totalAmountInSlisBnb;
     }
 
     function initialize(
@@ -53,6 +55,8 @@ interface IStakeManager {
         returns (uint256 bnbToUndelegate);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
+
+    function binarySearchCoveredMaxIndex(uint256 _bnbAmount) external returns (uint256);
 
     function depositReserve() external payable;
 
