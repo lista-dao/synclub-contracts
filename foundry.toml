@@ -10,3 +10,9 @@ remappings=[
     "@openzeppelin/contracts-upgradeable=./node_modules/@openzeppelin/contracts-upgradeable",
     "@chainlink/contracts=./node_modules/@chainlink/contracts",
 ]
+
+[rpc_endpoints]
+testnet = "${TESTNET_RPC_URL}"
+
+[etherscan]
+testnet = { key = "${ETHERSCAN_API_KEY}" }
