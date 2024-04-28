@@ -15,6 +15,7 @@ contract DeployStakeManager is Script {
         ListaStakeManager manager = new ListaStakeManager();
 
         address slisBNB = 0x4CE3d6c4B3ad75Ce25E9eA1b35607b937b1172db;
+        address bscValidator = 0x696606f04f7597F444265657C8c13039Fd759b14;
 
         bytes memory data = abi.encodeWithSelector(
         ListaStakeManager.initialize.selector,
@@ -24,11 +25,12 @@ contract DeployStakeManager is Script {
             deployer,
             5e8,
             deployer,
+            bscValidator
         );
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(slisBNB), deployer, data);
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(address(manager), deployer, data);
         vm.stopBroadcast();
 
-        console.log("SLisBNB implementation deployed at: ", address(slisBNB));
-        console.log("SLisBNB proxy deployed at: ", address(proxy));
+        console.log("StakeManager implementation deployed at: ", address(slisBNB));
+        console.log("StakeManager proxy deployed at: ", address(proxy));
     }
 }
