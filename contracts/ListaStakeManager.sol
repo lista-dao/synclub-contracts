@@ -32,7 +32,7 @@ contract ListaStakeManager is
     uint256 public amountToDelegate; // total BNB to delegate for next batch
 
     uint256 public requestUUID; // global UUID for each user withdrawal request
-    uint256 public nextConfirmedRequestUUID; // next confirmed UUID for user withdrawal requests
+    uint256 public nextConfirmedRequestUUID; // req whose uuid < nextConfirmedRequestUUID is claimable
 
     uint256 public reserveAmount; // buffer amount for undelegation
     uint256 public totalReserveAmount;
@@ -59,8 +59,7 @@ contract ListaStakeManager is
     mapping(address => bool) public validators;
     bool public delegateVotePower; // delegate voting power to validator or not
 
-    uint256 private undelegatedQuota; // the amount Bnb received but not claimable yet
-    uint256 public nextUndelegatedRequestIndex; // the index of next request to be delegated in queue
+    uint256 public undelegatedQuota; // the amount Bnb received but not claimable yet
     UserRequest[] internal withdrawalQueue; // queue for requested withdrawals
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
@@ -77,7 +76,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @param _slisBnb - Address of SlisBnb Token on Binance Smart Chain
+     * @param _slisBnb - Address of SlisBnb Token on BNB Smart Chain
      * @param _admin - Address of the admin
      * @param _manager - Address of the manager
      * @param _bot - Address of the Bot
@@ -215,8 +214,7 @@ contract ListaStakeManager is
         require(validators[dstValidator], "Inactive dst validator");
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
-        uint256 feeCharge = getRedelegateFee(_amount);
-        require(_amount >= feeCharge, "Insufficient Fee");
+
 
         // redelegate through native staking contract
         IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
@@ -229,6 +227,13 @@ contract ListaStakeManager is
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
         require(bnbToWithdraw > 0, "Bnb amount is too small");
+
+        uint256 totalAmount = bnbToWithdraw;
+        uint256 totalAmountInSlisBnb = _amountInSlisBnb;
+        if (withdrawalQueue.length != 0) {
+            totalAmount += withdrawalQueue[requestIndexMap[requestUUID]].totalAmount;
+            totalAmountInSlisBnb += withdrawalQueue[requestIndexMap[requestUUID]].totalAmountInSlisBnb;
+        }
 
         requestUUID++;
         userWithdrawalRequests[msg.sender].push(
@@ -243,7 +248,9 @@ contract ListaStakeManager is
             UserRequest({
                 uuid: requestUUID,
                 amount: bnbToWithdraw,
-                amountInSlisBnb: _amountInSlisBnb
+                amountInSlisBnb: _amountInSlisBnb,
+                totalAmount: totalAmount,
+                totalAmountInSlisBnb: totalAmountInSlisBnb
             })
         );
         requestIndexMap[requestUUID] = withdrawalQueue.length - 1;
@@ -367,7 +374,8 @@ contract ListaStakeManager is
         returns (uint256 _uuid, uint256 _amount)
     {
         require(totalSnBnbToBurn > 0, "Nothing to undelegate");
-        _uuid = requestUUID++; // nextUndelegateUUID renamed to requestUUID
+        _uuid = withdrawalQueue.length != 0 ? withdrawalQueue[0].uuid - 1: requestUUID;
+        // Pin _uuid to the last `nextUndelegateUUID` in old version
 
         uint256 totalSlisBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
         uint256 bnbAmount_ = convertSnBnbToBnb(totalSlisBnbToBurn_);
@@ -393,7 +401,7 @@ contract ListaStakeManager is
      * @dev Bot uses this function to undelegate BNB from a validator
      * @param _operator - Operator address of validator to undelegate from
      * @param _amount - Amount of bnb to undelegate
-     * @return bnbToUndelegate - bnb amount to be undelegated by bot
+     * @return _actualBnbAmount - the actual amount of BNB to be undelegated
      * @notice Bot should invoke `undelegate()` first to process old requests before calling this function
      */
     function undelegateFrom(address _operator, uint256 _amount)
@@ -401,18 +409,17 @@ contract ListaStakeManager is
         override
         whenNotPaused
         onlyRole(BOT)
-        returns (uint256)
+        returns (uint256 _actualBnbAmount)
     {
         require(totalSnBnbToBurn == 0, "Old requests should be processed first");
         require(_amount <= (getAmountToUndelegate() + reserveAmount), "Given bnb amount is too large");
         uint256 _shares = convertBnbToShares(_operator, _amount);
-        uint256 _actualBnbAmount = convertSharesToBnb(_operator, _shares);
+        _actualBnbAmount = convertSharesToBnb(_operator, _shares);
 
         unbondingBnb += _actualBnbAmount;
-        IStakeHub(STAKE_HUB).undelegate(bscValidator, _shares);
+        IStakeHub(STAKE_HUB).undelegate(_operator, _shares);
 
         emit UndelegateFrom(_operator, _actualBnbAmount, _shares);
-        return getAmountToUndelegate();
     }
 
     /**
@@ -441,12 +448,9 @@ contract ListaStakeManager is
 
         uint256 coveredAmount = 0;
         uint256 coveredSlisBnbAmount = 0;
-        uint256 oldLastUUID = requestUUID;
+        uint256 oldLastUUID = withdrawalQueue.length != 0 ? withdrawalQueue[0].uuid - 1 : requestUUID;
 
-        if (withdrawalQueue.length != 0) {
-            oldLastUUID = withdrawalQueue[0].uuid - 1;
-        }
-
+        // old requests will be fully covered by the last undelegated() call, can be removed in next version
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
@@ -460,16 +464,19 @@ contract ListaStakeManager is
             ++nextConfirmedRequestUUID;
         }
 
-        // new logic
-        for (uint256 i = nextConfirmedRequestUUID; i <= requestUUID; ++i) {
-            UserRequest storage req = withdrawalQueue[requestIndexMap[i]];
-            if (req.uuid == 0 || req.amount > undelegatedQuota) {
-                break;
+        // new logic, exists new requests, withdrawalQueue[0].uuid <= nextConfirmedRequestUUID can be removed in next version
+        if (withdrawalQueue.length != 0 && withdrawalQueue[withdrawalQueue.length - 1].uuid >= nextConfirmedRequestUUID && withdrawalQueue[0].uuid <= nextConfirmedRequestUUID) {
+            uint256 startIndex = requestIndexMap[nextConfirmedRequestUUID];
+            uint256 coveredMaxIndex = binarySearchCoveredMaxIndex(undelegatedQuota);
+            uint256 totalAmount = withdrawalQueue[coveredMaxIndex].totalAmount - withdrawalQueue[startIndex].totalAmount + withdrawalQueue[startIndex].amount;
+            uint256 totalAmountInSlisBnb = withdrawalQueue[coveredMaxIndex].totalAmountInSlisBnb - withdrawalQueue[startIndex].totalAmountInSlisBnb + withdrawalQueue[startIndex].amountInSlisBnb;
+            // may not have covered any requests when coveredMaxIndex == startIndex
+            if (totalAmount <= undelegatedQuota) {
+                undelegatedQuota -= totalAmount;
+                coveredAmount += totalAmount;
+                coveredSlisBnbAmount += totalAmountInSlisBnb;
+                nextConfirmedRequestUUID = withdrawalQueue[coveredMaxIndex].uuid + 1;
             }
-            undelegatedQuota -= req.amount;
-            coveredAmount += req.amount;
-            coveredSlisBnbAmount += req.amountInSlisBnb;
-            ++nextConfirmedRequestUUID;
         }
 
         totalDelegated -= coveredAmount;
@@ -481,6 +488,61 @@ contract ListaStakeManager is
         _amount = undelegatedAmount;
 
         emit ClaimUndelegatedFrom(_validator, _uuid, _amount);
+    }
+
+    /**
+     * @dev To prevent too large array lengths caused by DOS attack,
+     *      use binary search algorithm to find the maximum index
+     *      that might be covered in the withdrawalQueue by the given BNB amount
+     *
+     * @param _bnbAmount - the amount of BNB used to cover withdrawal requests
+     */
+    function binarySearchCoveredMaxIndex(uint256 _bnbAmount) public view override returns(uint256) {
+        require(withdrawalQueue.length != 0 && withdrawalQueue[0].uuid <= nextConfirmedRequestUUID, "No new requests or old requests have not been fully covered");
+        if (nextConfirmedRequestUUID > withdrawalQueue[withdrawalQueue.length - 1].uuid) {
+            // all requests have been covered
+            return 0;
+        }
+        uint256 startIndex = requestIndexMap[nextConfirmedRequestUUID];
+        uint256 endIndex = withdrawalQueue.length - 1;
+        uint256 startAmount = withdrawalQueue[startIndex].amount;
+        uint256 startTotalAmount = withdrawalQueue[startIndex].totalAmount;
+
+        // covered all requests, which is the common scenario
+        if (withdrawalQueue[endIndex].totalAmount - startTotalAmount + startAmount <= _bnbAmount) {
+            return endIndex;
+        }
+
+        uint256 start = startIndex;
+        uint256 end = endIndex;
+        while (start <= end) {
+            uint256 mid = (start + end) / 2; // startIndex <= mid <= endIndex
+
+            uint256 nextAmount;
+            if(mid < endIndex) {
+                nextAmount = withdrawalQueue[mid+1].totalAmount - startTotalAmount + startAmount;
+            } else {
+                // mid == endIndex
+                nextAmount = withdrawalQueue[endIndex].totalAmount - startTotalAmount + startAmount;
+            }
+            uint256 currentAmount = withdrawalQueue[mid].totalAmount - startTotalAmount + startAmount;
+
+            if (nextAmount > _bnbAmount && currentAmount <= _bnbAmount) {
+                return mid;
+            } else if (nextAmount <= _bnbAmount) {
+                if (mid >= endIndex) {
+                    return endIndex;
+                }
+                start = mid + 1;
+            } else {
+                if (mid <= startIndex) {
+                    return startIndex;
+                }
+                end = mid - 1;
+            }
+        }
+
+        return startIndex;
     }
 
     /**
@@ -785,17 +847,16 @@ contract ListaStakeManager is
      * @return _amountToUndelegate Bnb amount to be undelegated by bot
      */
     function getAmountToUndelegate() public view override returns (uint256 _amountToUndelegate) {
-        if (nextUndelegatedRequestIndex == withdrawalQueue.length) {
+        if (withdrawalQueue.length == 0 || withdrawalQueue[withdrawalQueue.length - 1].uuid < nextConfirmedRequestUUID) {
             return 0;
         }
-        uint256 totalAmountToWithdraw = 0;
-        for (uint256 i = nextUndelegatedRequestIndex; i < withdrawalQueue.length; ++i) {
-            UserRequest storage req = withdrawalQueue[i];
-            uint256 amount = req.amount;
-            totalAmountToWithdraw += amount;
-        }
 
-        _amountToUndelegate = totalAmountToWithdraw - unbondingBnb;
+        uint256 nextIndex = requestIndexMap[nextConfirmedRequestUUID];
+        uint256 totalAmountToWithdraw = withdrawalQueue[withdrawalQueue.length - 1].totalAmount - withdrawalQueue[nextIndex].totalAmount + withdrawalQueue[nextIndex].amount;
+
+        _amountToUndelegate = totalAmountToWithdraw > unbondingBnb ? totalAmountToWithdraw - unbondingBnb : 0;
+
+        return _amountToUndelegate >= undelegatedQuota ? _amountToUndelegate - undelegatedQuota : 0;
     }
 
     /**
