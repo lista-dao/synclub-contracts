@@ -184,10 +184,10 @@ contract SnStakeManager is
         whenNotPaused
         onlyManager
     {
-        require(reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
         address stakeHub = 0x0000000000000000000000000000000000002002;
         address validator = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
         bool delegateVotePower = false;
+        require(reserveAmount >= IStakeHub(stakeHub).minDelegationBNBChange(), "Insufficient Deposit Amount");
 
         IStakeHub(stakeHub).delegate{value: reserveAmount}(validator, delegateVotePower);
 
