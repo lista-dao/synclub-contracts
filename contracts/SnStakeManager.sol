@@ -137,6 +137,7 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -201,6 +202,7 @@ contract SnStakeManager is
         onlyManager
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
 
@@ -453,6 +455,7 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 failedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         if (withReserve) {
             require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
