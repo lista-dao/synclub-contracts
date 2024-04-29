@@ -269,11 +269,30 @@ contract ListaStakeManager is
     }
 
     /**
+     * @dev Allow users to request for unstake/withdraw funds
+     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend SlisBnb
+     */
+    function redeem(uint256 _amountInSlisBnb)
+    external
+    override
+    whenNotPaused
+    {
+        _addWithdrawRequest(_amountInSlisBnb);
+        IERC20Upgradeable(slisBnb).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _amountInSlisBnb
+        );
+        emit RequestWithdraw(msg.sender, _amountInSlisBnb);
+    }
+
+    /**
      * @dev Allows user to request for unstake/withdraw funds
      * @param _amountInLisBnb - Amount of lisBnb to swap for withdraw
      * @notice User must have approved this contract to spend lisBnb
     */
-    function requestWithdrawByLisBnb(uint256 _amountInLisBnb)
+    function redeemWithLisBnb(uint256 _amountInLisBnb)
     external
     override
     whenNotPaused

@@ -48,7 +48,9 @@ interface IStakeManager {
 
     function requestWithdraw(uint256 _amountInSnBnb) external;
 
-    function requestWithdrawByLisBnb(uint256 _amountInLisBnb) external;
+    function redeem(uint256 _amountInSnBnb) external;
+
+    function redeemWithLisBnb(uint256 _amountInLisBnb) external;
 
     function claimWithdraw(uint256 _idx) external;
 
