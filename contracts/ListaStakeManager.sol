@@ -761,7 +761,7 @@ contract ListaStakeManager is
      */
     function getDelegated(address _validator) public view override returns (uint256) {
         address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
-        return IStakeCredit(creditContract).getPooledBNB(address(this));
+        return IStakeCredit(creditContract).getPooledBNB(address(this)) + IStakeCredit(creditContract).lockedBNBs(address(this), 0);
     }
 
     /**
