@@ -915,19 +915,18 @@ contract ListaStakeManager is
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
-        require(totalBNBInValidators + undelegatedQuota >= totalDelegated, "No new fee to compound");
+        require(totalBNBInValidators + undelegatedQuota > totalDelegated, "No new fee to compound");
         uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
         uint256 fee = 0;
         if (synFee > 0) {
             fee = totalProfit * synFee / TEN_DECIMALS;
         }
 
-        uint256 slisBNBAmount = convertBnbToSnBnb(fee);
-        require(slisBNBAmount > 0, "Invalid slisBnb Amount");
-
-        ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
-
         totalDelegated += totalProfit;
+        uint256 slisBNBAmount = convertBnbToSnBnb(fee);
+        if (slisBNBAmount > 0) {
+            ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
+        }
 
         emit RewardsCompounded(fee);
     }
