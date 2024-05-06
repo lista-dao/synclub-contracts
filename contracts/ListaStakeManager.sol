@@ -65,6 +65,7 @@ contract ListaStakeManager is
     address[] public creditContracts;
     mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `reveive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
+    uint256 public minBnb; // the minimum amount of BNB to withdraw; initial value is 0.01 BNB
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -196,7 +197,7 @@ contract ListaStakeManager is
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
-        require(bnbToWithdraw > 0, "Bnb amount is too small");
+        require(bnbToWithdraw > minBnb, "Bnb amount is too small to withdraw");
 
         uint256 totalAmount = bnbToWithdraw;
         uint256 totalAmountInSlisBnb = _amountInSlisBnb;
@@ -582,6 +583,16 @@ contract ListaStakeManager is
         synFee = _synFee;
 
         emit SetSynFee(_synFee);
+    }
+
+    function setMinBnb(uint256 _amount)
+        external
+        override
+        onlyManager
+    {
+        require(_amount != minBnb, "Invalid Amount");
+        minBnb = _amount;
+        emit SetMinBnb(_amount);
     }
 
     function setRedirectAddress(address _address)
