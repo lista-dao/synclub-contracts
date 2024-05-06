@@ -141,8 +141,6 @@ interface IStakeManager {
 
     function compoundRewards() external;
 
-    function claimFee() external;
-
     function getTotalBnbInValidators() external returns (uint256);
 
     function getRedelegateFee(uint256 bnbAmount)

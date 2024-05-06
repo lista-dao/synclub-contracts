@@ -66,8 +66,6 @@ contract ListaStakeManager is
     mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `reveive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
 
-    uint256 public totalFee;
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -913,33 +911,21 @@ contract ListaStakeManager is
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
-        require(totalBNBInValidators >= totalDelegated && totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
-        uint256 totalProfit = totalBNBInValidators - totalDelegated - totalFee;
+        require(totalBNBInValidators + undelegatedQuota >= totalDelegated, "No new fee to compound");
+        uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
         uint256 fee = 0;
         if (synFee > 0) {
             fee = totalProfit * synFee / TEN_DECIMALS;
-            totalFee += fee;
         }
-        uint256 totalUserProfit = totalProfit - fee;
 
-        totalDelegated += totalUserProfit;
-
-        emit RewardsCompounded(fee);
-    }
-
-    /**
-     * @dev Allows bot to claim fee
-     */
-    function claimFee() external override whenNotPaused onlyRole(BOT) {
-        require(totalFee > 0, "No fee to claim");
-        require(revenuePool != address(0x0), "revenue pool not set");
-
-        uint256 slisBNBAmount = convertBnbToSnBnb(totalFee);
+        uint256 slisBNBAmount = convertBnbToSnBnb(fee);
         require(slisBNBAmount > 0, "Invalid slisBnb Amount");
-        totalDelegated += totalFee;
-        totalFee = 0;
 
         ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
+
+        totalDelegated += totalProfit;
+
+        emit RewardsCompounded(fee);
     }
 
     /**
