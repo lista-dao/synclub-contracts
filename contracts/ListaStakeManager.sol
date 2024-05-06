@@ -372,6 +372,10 @@ contract ListaStakeManager is
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
+                totalDelegated -= coveredAmount;
+                if (coveredSlisBnbAmount > 0) {
+                    ISLisBNB(slisBnb).burn(address(this), coveredSlisBnbAmount);
+                }
                 emit ClaimUndelegatedFrom(_validator, nextConfirmedRequestUUID, undelegatedAmount);
                 return (nextConfirmedRequestUUID, undelegatedAmount);
             }
