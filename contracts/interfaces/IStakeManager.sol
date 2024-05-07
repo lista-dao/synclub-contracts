@@ -78,6 +78,8 @@ interface IStakeManager {
 
     function setRevenuePool(address _address) external;
 
+    function setMinBnb(uint256 _minBnb) external;
+
     function getTotalPooledBnb() external view returns (uint256);
 
     function setRedirectAddress(address _address) external;
@@ -117,8 +119,6 @@ interface IStakeManager {
         view
         returns (uint256 _slisBnbWithdrawLimit);
 
-    //    function getPendingUndelegateTime(address validator) external view returns (uint256);
-
     function getAmountToUndelegate() external view returns (uint256);
 
     function getDelegated(address validator) external view returns (uint256);
@@ -140,8 +140,6 @@ interface IStakeManager {
         returns (uint256 _amount);
 
     function compoundRewards() external;
-
-    function claimFee() external;
 
     function getTotalBnbInValidators() external returns (uint256);
 
@@ -179,4 +177,5 @@ interface IStakeManager {
     event DisableValidator(address indexed _address);
     event RemoveValidator(address indexed _address);
     event SyncCreditContract(address indexed _validator, address _credit, bool toRemove);
+    event SetMinBnb(uint256 _minBnb);
 }

@@ -65,8 +65,7 @@ contract ListaStakeManager is
     address[] public creditContracts;
     mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `reveive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
-
-    uint256 public totalFee;
+    uint256 public minBnb; // the minimum amount of BNB to withdraw; initial value is 0.01 BNB
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -198,7 +197,7 @@ contract ListaStakeManager is
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
-        require(bnbToWithdraw > 0, "Bnb amount is too small");
+        require(bnbToWithdraw > minBnb, "Bnb amount is too small to withdraw");
 
         uint256 totalAmount = bnbToWithdraw;
         uint256 totalAmountInSlisBnb = _amountInSlisBnb;
@@ -374,6 +373,10 @@ contract ListaStakeManager is
         for (uint256 i = nextConfirmedRequestUUID; i <= oldLastUUID; ++i) {
             BotUndelegateRequest storage botRequest = uuidToBotUndelegateRequestMap[i];
             if (undelegatedQuota < botRequest.amount) {
+                totalDelegated -= coveredAmount;
+                if (coveredSlisBnbAmount > 0) {
+                    ISLisBNB(slisBnb).burn(address(this), coveredSlisBnbAmount);
+                }
                 emit ClaimUndelegatedFrom(_validator, nextConfirmedRequestUUID, undelegatedAmount);
                 return (nextConfirmedRequestUUID, undelegatedAmount);
             }
@@ -582,6 +585,16 @@ contract ListaStakeManager is
         emit SetSynFee(_synFee);
     }
 
+    function setMinBnb(uint256 _amount)
+        external
+        override
+        onlyManager
+    {
+        require(_amount != minBnb, "Invalid Amount");
+        minBnb = _amount;
+        emit SetMinBnb(_amount);
+    }
+
     function setRedirectAddress(address _address)
         external
         override
@@ -759,7 +772,7 @@ contract ListaStakeManager is
      */
     function getDelegated(address _validator) public view override returns (uint256) {
         address creditContract = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
-        return IStakeCredit(creditContract).getPooledBNB(address(this));
+        return IStakeCredit(creditContract).getPooledBNB(address(this)) + IStakeCredit(creditContract).lockedBNBs(address(this), 0);
     }
 
     /**
@@ -913,33 +926,20 @@ contract ListaStakeManager is
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
-        require(totalBNBInValidators >= totalDelegated && totalBNBInValidators - totalDelegated > totalFee, "No new fee to compound");
-        uint256 totalProfit = totalBNBInValidators - totalDelegated - totalFee;
+        require(totalBNBInValidators + undelegatedQuota > totalDelegated, "No new fee to compound");
+        uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
         uint256 fee = 0;
         if (synFee > 0) {
             fee = totalProfit * synFee / TEN_DECIMALS;
-            totalFee += fee;
         }
-        uint256 totalUserProfit = totalProfit - fee;
 
-        totalDelegated += totalUserProfit;
+        totalDelegated += totalProfit;
+        uint256 slisBNBAmount = convertBnbToSnBnb(fee);
+        if (slisBNBAmount > 0) {
+            ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
+        }
 
         emit RewardsCompounded(fee);
-    }
-
-    /**
-     * @dev Allows bot to claim fee
-     */
-    function claimFee() external override whenNotPaused onlyRole(BOT) {
-        require(totalFee > 0, "No fee to claim");
-        require(revenuePool != address(0x0), "revenue pool not set");
-
-        uint256 slisBNBAmount = convertBnbToSnBnb(totalFee);
-        require(slisBNBAmount > 0, "Invalid slisBnb Amount");
-        totalDelegated += totalFee;
-        totalFee = 0;
-
-        ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
     }
 
     /**
