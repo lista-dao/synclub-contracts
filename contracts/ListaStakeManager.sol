@@ -63,7 +63,7 @@ contract ListaStakeManager is
 
     mapping(uint256 => uint256) public requestIndexMap; // uuid => index in withdrawalQueue
     address[] public creditContracts;
-    mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `reveive()`
+    mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `receive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
     uint256 public minBnb; // the minimum amount of BNB to withdraw; initial value is 0.01 BNB
 
@@ -235,8 +235,8 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Users uses this function to claim the requested withdrawals
-     * @param _idx - index of the request of getUserWithdrawalRequests()
+     * @dev Users use this function to claim the requested withdrawals
+     * @param _idx - index of the request in the array returns by getUserWithdrawalRequests()
      */
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
         address user = msg.sender;
@@ -387,7 +387,7 @@ contract ListaStakeManager is
             ++nextConfirmedRequestUUID;
         }
 
-        // new logic, exists new requests, withdrawalQueue[0].uuid <= nextConfirmedRequestUUID can be removed in next version
+        // new logic, new requests exist; `withdrawalQueue[0].uuid <= nextConfirmedRequestUUID` condition can be removed in next version
         if (withdrawalQueue.length != 0 && withdrawalQueue[withdrawalQueue.length - 1].uuid >= nextConfirmedRequestUUID && withdrawalQueue[0].uuid <= nextConfirmedRequestUUID) {
             uint256 startIndex = requestIndexMap[nextConfirmedRequestUUID];
             uint256 coveredMaxIndex = binarySearchCoveredMaxIndex(undelegatedQuota);
@@ -414,10 +414,10 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev To prevent too large array lengths caused by DOS attack,
-     *      use binary search algorithm to find the maximum index
+     * @dev To prevent DOS attack caused by the large number of requests in the withdrawalQueue.
+     *      Use binary search algorithm to find the maximum index
      *      that might be covered in the withdrawalQueue by the given BNB amount
-     *
+     * @return the maximum index that might be covered in the withdrawalQueue by the given BNB amount
      * @param _bnbAmount - the amount of BNB used to cover withdrawal requests
      */
     function binarySearchCoveredMaxIndex(uint256 _bnbAmount) public view override returns(uint256) {
@@ -478,12 +478,21 @@ contract ListaStakeManager is
         totalReserveAmount += amount;
     }
 
+    /**
+     * @dev Withdraw reserved funds from the contract to redirect address
+     * @param amount - Amount of BNB to withdraw
+     */
     function withdrawReserve(uint256 amount) external override whenNotPaused onlyRedirectAddress{
         require(amount <= totalReserveAmount, "Insufficient Balance");
         totalReserveAmount -= amount;
         AddressUpgradeable.sendValue(payable(msg.sender), amount);
     }
 
+    /**
+     * @dev Adjust reserve amount.
+            reserveAmount is the buffer for undelegation, bot will add some extra BNB when calling undelegateFrom for the first time, in order to cover the last request
+     * @param amount - Amount of Bnb
+     */
     function setReserveAmount(uint256 amount) external override onlyManager {
         reserveAmount = amount;
         emit SetReserveAmount(amount);
@@ -585,6 +594,10 @@ contract ListaStakeManager is
         emit SetSynFee(_synFee);
     }
 
+    /**
+     * @dev Sets the minimum amount of BNB to withdraw
+     * @param _amount - the minimum amount of BNB to withdraw
+     */
     function setMinBnb(uint256 _amount)
         external
         override
@@ -768,6 +781,7 @@ contract ListaStakeManager is
     }
 
     /**
+     * @param _validator - the operator address of the validator
      * @return the total amount of BNB staked and reward
      */
     function getDelegated(address _validator) public view override returns (uint256) {
@@ -794,6 +808,7 @@ contract ListaStakeManager is
 
     /**
      * @dev Query the claimable amount of BNB of a validator
+     * @param _validator - the operator address of the validator
      * @return _amount - the amount of BNB claimable
      */
     function getClaimableAmount(address _validator)
@@ -814,6 +829,12 @@ contract ListaStakeManager is
         }
     }
 
+    /**
+     * @dev Calculates amount of Bnb for _shares
+     * @param _operator - the operator address of the validator
+     * @param _shares - the amount of shares
+     * @return the amount of BNB for given shares
+     */
     function convertSharesToBnb(address _operator, uint256 _shares)
         public
         view
@@ -824,6 +845,12 @@ contract ListaStakeManager is
         return IStakeCredit(creditContract).getPooledBNBByShares(_shares);
     }
 
+    /**
+     * @dev Calculates amount of shares for _bnbAmount
+     * @param _operator - the operator address of the validator
+     * @param _bnbAmount - the amount of BNB
+     * @return the amount of shares for given BNB
+     */
     function convertBnbToShares(address _operator, uint256 _bnbAmount)
         public
         view
