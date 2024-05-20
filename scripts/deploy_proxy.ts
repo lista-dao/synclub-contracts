@@ -1,7 +1,6 @@
-import { deployProxy } from "./tasks";
-import { ethers, upgrades } from "hardhat";
+import { ethers, upgrades, run } from "hardhat";
 
-const admin = "0x245b3Ee7fCC57AcAe8c208A563F54d630B5C4eD7";
+const admin = "0xeA71Ec772B5dd5aF1D15E31341d6705f9CB86232";
 const contractName = "LisBNB";
 
 async function main() {
@@ -18,6 +17,7 @@ async function main() {
 
   console.log(`Proxy ${contractName} deployed to:`, contract.address);
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
+  await run("verify:verify", { address: contractImplAddress });
 }
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.

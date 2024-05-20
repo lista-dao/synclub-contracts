@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, run } from "hardhat";
 
 async function main() {
   const stakeManagerContractFactory = await ethers.getContractFactory(
@@ -12,6 +12,7 @@ async function main() {
     "ListaStakeManager Contract deployed to:",
     stakeManagerContract.address
   );
+  await run("verify:verify", { address: stakeManagerContract.address });
 }
 
 // We recommend this pattern to be able to use async/await everywhere
