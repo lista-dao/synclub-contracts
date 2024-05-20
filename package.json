@@ -23,7 +23,6 @@
     "@nomiclabs/hardhat-ethers": "^2.0.6",
     "@nomiclabs/hardhat-etherscan": "^3.0.4",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
-    "@openzeppelin/contracts-upgradeable": "^4.7.1",
     "@openzeppelin/hardhat-defender": "^1.6.2",
     "@openzeppelin/hardhat-upgrades": "^1.18.1",
     "@typechain/ethers-v5": "^7.2.0",
@@ -58,6 +57,7 @@
     "typescript": "^4.7.3"
   },
   "dependencies": {
-    "@opengsn/contracts": "^3.0.0-beta.1"
+    "@opengsn/contracts": "^3.0.0-beta.1",
+    "@openzeppelin/contracts-upgradeable": "4.8.3"
   }
 }

@@ -9,8 +9,9 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeab
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import {IStakeManager} from "./interfaces/IStakeManager.sol";
-import {ISnBnb} from "./interfaces/ISnBnb.sol";
-import {IStaking} from "./interfaces/INativeStaking.sol";
+import {ISnBnb} from "../interfaces/ISnBnb.sol";
+import {IStaking} from "../interfaces/INativeStaking.sol";
+import {IStakeHub} from "./interfaces/IStakeHub.sol";
 
 /**
  * @title Stake Manager Contract
@@ -60,7 +61,7 @@ contract SnStakeManager is
     }
 
     /**
-     * @param _snBnb - Address of SnBnb Token on Binance Smart Chain
+     * @param _snBnb - Address of SnBnb Token on BNB Smart Chain
      * @param _admin - Address of the admin
      * @param _manager - Address of the manager
      * @param _bot - Address of the Bot
@@ -136,6 +137,7 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -153,33 +155,42 @@ contract SnStakeManager is
     }
 
     /**
-     * @dev Allows bot to delegate users' funds + reserved BNB to native staking contract
-     * @return _amount - Amount of funds transferred for staking
-     * @notice The amount should be greater than minimum delegation on native staking contract
+     * @dev One time function to delegate to BSC validator right after claimUndelegatedAll
+     * @param _amount - Amount of bnb to delegate to the hard-coded BSC validator
      */
-    function delegateWithReserve()
-        external
-        payable
-        override
-        whenNotPaused
-        onlyRole(BOT)
-        returns (uint256 _amount)
-    {
-        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
-        uint256 relayFeeReceived = msg.value;
-        _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
+    function delegateTo(uint256 _amount) external whenNotPaused onlyRole(BOT) {
+        address stakeHub = 0x0000000000000000000000000000000000002002;
+        address validator = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
+        bool delegateVotePower = false;
 
-        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
-        require(totalReserveAmount >= reserveAmount, "Insufficient Reserve Amount");
-        require(_amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Deposit Amount");
+        require(amountToDelegate >= _amount, "Not enough BNB to delegate");
+        require(_amount >= IStakeHub(stakeHub).minDelegationBNBChange(), "Insufficient Delegation Amount");
 
-        amountToDelegate = amountToDelegate - _amount;
+        amountToDelegate -= _amount;
         totalDelegated += _amount;
 
-        // delegate through native staking contract
-        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
+        // delegate through StakeHub contract
+        IStakeHub(stakeHub).delegate{value: _amount}(validator, delegateVotePower);
+        emit DelegateTo(validator, _amount, delegateVotePower);
+    }
 
-        emit Delegate(_amount);
+    /**
+     * @dev Allows manager to delegate reserve amount(100 Bnb) to the hard-coded validator;
+     *      This function is used to amend the balance difference caused by missing `delegateWithReserve` operations
+     * @notice The reserve amount should be greater than minimum delegation on stake hub contract
+     */
+    function delegateReserve()
+        external
+        whenNotPaused
+        onlyManager
+    {
+        address stakeHub = 0x0000000000000000000000000000000000002002;
+        address validator = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
+        bool delegateVotePower = false;
+        require(reserveAmount >= IStakeHub(stakeHub).minDelegationBNBChange(), "Insufficient Deposit Amount");
+
+        IStakeHub(stakeHub).delegate{value: reserveAmount}(validator, delegateVotePower);
+
         emit DelegateReserve(reserveAmount);
     }
 
@@ -191,6 +202,7 @@ contract SnStakeManager is
         onlyManager
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
 
@@ -337,6 +349,50 @@ contract SnStakeManager is
         emit UndelegateReserve(reserveAmount);
     }
 
+    /**
+     * @dev Bot uses this function to undelegate all funds from Beacon Chain for BSC Feynman upgrade
+     * @return _uuid - unique id against which this Undelegation event was logged
+     * @return _amount - Amount of funds requested to Unstake
+     */
+    function undelegateAll()
+        external
+        payable
+        override
+        whenNotPaused
+        onlyRole(BOT)
+        returns (uint256 _uuid, uint256 _amount)
+    {
+        uint256 _allAmount = IStaking(NATIVE_STAKING).getDelegated(address(this), bcValidator);
+
+        uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
+        uint256 relayFeeReceived = msg.value;
+
+        require(relayFeeReceived == relayFee, "Insufficient RelayFee");
+
+        _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
+        uint256 totalSnBnbToBurn_ = totalSnBnbToBurn; // To avoid Reentrancy attack
+        _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
+        _amount -= _amount % TEN_DECIMALS;
+
+        require(_allAmount > 0 && _allAmount >= _amount, "Total amount should be larger than requested amount");
+
+        uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
+            startTime: block.timestamp,
+            endTime: 0,
+            amount: _amount,
+            amountInSnBnb: totalSnBnbToBurn_
+        });
+
+        totalDelegated -= _amount;
+        totalSnBnbToBurn = 0;
+
+        ISnBnb(snBnb).burn(address(this), totalSnBnbToBurn_);
+
+        IStaking(NATIVE_STAKING).undelegate{value: msg.value}(bcValidator, _allAmount);
+
+        emit UndelegateAll(_allAmount, _amount);
+    }
+
     function claimUndelegated()
         external
         override
@@ -358,6 +414,40 @@ contract SnStakeManager is
         emit ClaimUndelegated(_uuid, _amount);
     }
 
+    /**
+     * @dev Bot uses this function to claim all undelegated funds from Beacon Chain for BSC Feynman upgrade
+     * @return _uuid - the confirmed undelegated uuid
+     * @return _amount - Amount of funds claimed
+     */
+    function claimUndelegatedAll()
+        external
+        override
+        whenNotPaused
+        onlyRole(BOT)
+        returns (uint256 _uuid, uint256 _amount)
+    {
+        // undelegatedAmount = requested undelegated amount + remaining amount
+        uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
+        require(undelegatedAmount > 0, "Nothing to undelegate");
+
+        uint256 remainingAmount = undelegatedAmount;
+
+        for (uint256 i = confirmedUndelegatedUUID; i <= nextUndelegateUUID - 1; i++) {
+            BotUndelegateRequest
+                storage botUndelegateRequest = uuidToBotUndelegateRequestMap[i];
+            botUndelegateRequest.endTime = block.timestamp;
+            confirmedUndelegatedUUID++;
+            remainingAmount -= botUndelegateRequest.amount;
+        }
+        _uuid = confirmedUndelegatedUUID;
+        amountToDelegate += remainingAmount;
+        totalDelegated -= remainingAmount;
+        _amount = undelegatedAmount;
+
+        emit ClaimUndelegated(_uuid, undelegatedAmount);
+    }
+
+
     function claimFailedDelegation(bool withReserve)
         external
         override
@@ -365,6 +455,7 @@ contract SnStakeManager is
         onlyRole(BOT)
         returns (uint256 _amount)
     {
+        revert("Not supported");
         uint256 failedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         if (withReserve) {
             require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
