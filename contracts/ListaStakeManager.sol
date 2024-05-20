@@ -264,8 +264,8 @@ contract ListaStakeManager is
 
     /**
      * @dev Allow users to request for unstake/withdraw funds
-     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
-     * @notice User must have approved this contract to spend SlisBnb
+     * @param _amountInSlisBnb - Amount of slisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend slisBnb
      */
     function requestWithdraw(uint256 _amountInSlisBnb)
         external
@@ -283,8 +283,8 @@ contract ListaStakeManager is
 
     /**
      * @dev Allow users to request for unstake/withdraw funds
-     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
-     * @notice User must have approved this contract to spend SlisBnb
+     * @param _amountInSlisBnb - Amount of slisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend slisBnb
      */
     function redeem(uint256 _amountInSlisBnb)
     external
