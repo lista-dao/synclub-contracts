@@ -47,7 +47,9 @@ export async function upgradeProxy(
 
   console.log(`Upgrading ${contractName} with proxy at: ${proxyAddress}`);
 
-  const contract = await hre.upgrades.upgradeProxy(proxyAddress, Contract);
+  const contract = await hre.upgrades.upgradeProxy(proxyAddress, Contract, {
+    unsafeAllowRenames: true,
+  });
   await contract.deployed();
 
   const contractImplAddress =

@@ -4,30 +4,43 @@ import { Contract } from "ethers";
 import { loadFixture } from "ethereum-waffle";
 import type { MockContract } from "@ethereum-waffle/mock-contract";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { impersonateAccount, toWei } from "../helper";
 
 import { accountFixture, deployFixture } from "../fixture";
 
-describe("SnStakeManager::access", function () {
+describe("ListaStakeManager::access", function () {
   const ADDRESS_ZERO = ethers.constants.AddressZero;
+  const NATIVE_STAKING = "0x0000000000000000000000000000000000002001";
+  const RELAYER_FEE = "2000000000000000";
 
   let mockSnBNB: MockContract;
+  let mockNativeStaking: MockContract;
   let stakeManager: Contract;
   let admin: SignerWithAddress;
   let manager: SignerWithAddress;
   let bot: SignerWithAddress;
+  let nativeStakingSigner: SignerWithAddress;
 
   before(async function () {
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
     this.deployer = deployer;
     const { deployMockContract } = await loadFixture(deployFixture);
-    mockSnBNB = await deployMockContract("SnBnb");
+    mockNativeStaking = await deployMockContract("MockNativeStaking", {
+      address: NATIVE_STAKING,
+    });
+    nativeStakingSigner = await impersonateAccount(
+      mockNativeStaking.address,
+      toWei("10").toHexString()
+    );
+
+    mockSnBNB = await deployMockContract("SLisBNB");
     admin = this.addrs[1];
     manager = this.addrs[2];
     bot = this.addrs[3];
 
     stakeManager = await upgrades.deployProxy(
-      await ethers.getContractFactory("SnStakeManager"),
+      await ethers.getContractFactory("ListaStakeManager"),
       [
         mockSnBNB.address,
         admin.address,
@@ -39,6 +52,18 @@ describe("SnStakeManager::access", function () {
       ]
     );
     await stakeManager.deployed();
+
+    // mock native staking contract behaviors
+    await Promise.all([
+      mockSnBNB.mock.mint.returns(),
+      mockSnBNB.mock.totalSupply.returns(toWei("1000000")),
+      mockNativeStaking.mock.getRelayerFee.returns(RELAYER_FEE), // 0.002BNB relayer fee
+      mockNativeStaking.mock.getMinDelegation.returns(toWei("1")),
+      mockNativeStaking.mock.delegate.returns(),
+      mockNativeStaking.mock.redelegate.returns(),
+      mockNativeStaking.mock.undelegate.returns(),
+      mockNativeStaking.mock.claimReward.returns(toWei("0.01")),
+    ]);
   });
 
   it("Can't propose new manager if caller is not manager", async function () {
@@ -74,49 +99,53 @@ describe("SnStakeManager::access", function () {
       .withArgs(this.addrs[6].address);
 
     manager = this.addrs[6];
+    const newManager = (await stakeManager.getContracts())[0];
+    expect(newManager).to.equals(manager.address);
   });
 
-  it("Can't revoke bot role if caller is not manager", async function () {
-    await expect(
-      stakeManager.connect(this.deployer).revokeBotRole(bot.address)
-    ).to.be.revertedWith("Accessible only by Manager");
+  it("Can't revoke bot role if caller is not admin", async function () {
+    await expect(stakeManager.connect(this.deployer).revokeBotRole(bot.address))
+      .to.be.reverted;
 
     await expect(
-      stakeManager.connect(manager).revokeBotRole(ADDRESS_ZERO)
+      stakeManager.connect(admin).revokeBotRole(ADDRESS_ZERO)
     ).to.be.revertedWith("zero address provided");
   });
 
-  it("Should be able to revoke bot role by manager", async function () {
-    expect(
-      await stakeManager.hasRole(ethers.utils.id("BOT"), bot.address)
-    ).to.equals(true);
+  it("Should be able to revoke bot role by admin", async function () {
+    const role = ethers.utils.id("BOT");
 
-    const tx = await stakeManager.connect(manager).revokeBotRole(bot.address);
+    expect(await stakeManager.hasRole(role, bot.address)).to.equals(true);
 
-    expect(tx).to.emit(stakeManager, "RevokeBotRole").withArgs(bot.address);
+    const tx = await stakeManager.connect(admin).revokeBotRole(bot.address);
+
+    expect(tx)
+      .to.emit(stakeManager, "RoleRevoked")
+      .withArgs(role, bot.address, admin.address);
     expect(
       await stakeManager.hasRole(ethers.utils.id("BOT"), bot.address)
     ).to.equals(false);
   });
 
-  it("Can't set bot role if caller is not manager", async function () {
+  it("Can't set bot role if caller is not admin", async function () {
     await expect(
       stakeManager.connect(this.deployer).setBotRole(this.addrs[7].address)
-    ).to.be.revertedWith("Accessible only by Manager");
+    ).to.be.reverted;
 
     await expect(
-      stakeManager.connect(manager).setBotRole(ADDRESS_ZERO)
+      stakeManager.connect(admin).setBotRole(ADDRESS_ZERO)
     ).to.be.revertedWith("zero address provided");
   });
 
-  it("Should be able to set bot role by manager", async function () {
+  it("Should be able to set bot role by admin", async function () {
     const nextBot = this.addrs[7].address;
-    expect(
-      await stakeManager.hasRole(ethers.utils.id("BOT"), nextBot)
-    ).to.equals(false);
-    const tx = await stakeManager.connect(manager).setBotRole(nextBot);
+    const role = ethers.utils.id("BOT");
+    expect(await stakeManager.hasRole(role, nextBot)).to.equals(false);
+    const tx = await stakeManager.connect(admin).setBotRole(nextBot);
 
-    expect(tx).to.emit(stakeManager, "SetBotRole").withArgs(nextBot);
+    expect(tx)
+      .to.emit(stakeManager, "RoleGranted")
+      .withArgs(role, nextBot, admin.address);
     expect(
       await stakeManager.hasRole(ethers.utils.id("BOT"), nextBot)
     ).to.equals(true);
@@ -193,6 +222,13 @@ describe("SnStakeManager::access", function () {
   });
 
   it("Should be able to set sync fee by admin", async function () {
+    await stakeManager.deposit({ value: toWei("1") });
+    await stakeManager.connect(bot).delegate({ value: RELAYER_FEE });
+    await nativeStakingSigner.sendTransaction({
+      to: stakeManager.address,
+      value: toWei("0.01"),
+    });
+
     expect(await stakeManager.synFee()).to.equals(1_000);
     const tx = await stakeManager.connect(admin).setSynFee(1);
 
