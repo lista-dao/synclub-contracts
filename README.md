@@ -1,4 +1,4 @@
-# snBNB
+# Lista BNB Liquid Staking
 
 ```shell
 npx hardhat accounts
