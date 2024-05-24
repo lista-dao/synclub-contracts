@@ -12,6 +12,7 @@ import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
 import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
+import {ILisBNB} from "./interfaces/ILisBNB.sol";
 
 /**
  * @title Stake Manager Contract
@@ -65,7 +66,9 @@ contract ListaStakeManager is
     address[] public creditContracts;
     mapping(address => bool) public creditStates; // states of credit contracts; use mapping to reduce gas of `receive()`
     uint256 public unbondingBnb; // the amount of BNB unbonding in fly; precise bnb amount
+
     uint256 public minBnb; // the minimum amount of BNB to withdraw; initial value is 0.01 BNB
+    address public lisBnb;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -121,7 +124,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows user to deposit Bnb and mint SlisBnb
+     * @dev Allows user to deposit BNB and mint slisBNB
      */
     function deposit() external payable override whenNotPaused {
         uint256 amount = msg.value;
@@ -134,6 +137,47 @@ contract ListaStakeManager is
         ISLisBNB(slisBnb).mint(msg.sender, slisBnbToMint);
 
         emit Deposit(msg.sender, msg.value);
+    }
+
+    /**
+     * @dev Allows user to deposit BNB and mint lisBNB
+    */
+    function depositV2() external payable override whenNotPaused returns (uint256 _amountInLisBnb) {
+        uint256 amount = msg.value;
+        require(amount > 0, "Invalid Amount");
+
+        amountToDelegate += amount;
+
+        ILisBNB(lisBnb).mint(msg.sender, amount);
+
+        _amountInLisBnb = amount;
+        emit Deposit(msg.sender, amount);
+    }
+
+    /**
+     * @dev Allows user to stake lisBNB and mint slisBNB
+     */
+    function stake(uint256 _amountInLisBnb) external override whenNotPaused returns (uint256 _amountInSlisBnb) {
+        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
+        _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+        require(_amountInSlisBnb > 0, "Invalid slisBnb Amount");
+
+        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
+
+        ISLisBNB(slisBnb).mint(msg.sender, _amountInSlisBnb);
+    }
+
+    /**
+     * @dev Allows user to unstake slisBNB and mint lisBNB
+     */
+    function unstake(uint256 _amountInSlisBnb) external override whenNotPaused returns (uint256 _amountInLisBnb) {
+        require(_amountInSlisBnb > 0, "Invalid slisBnb Amount");
+        _amountInLisBnb = convertSnBnbToBnb(_amountInSlisBnb);
+        require(_amountInLisBnb > 0, "Invalid lisBnb Amount");
+
+        ISLisBNB(slisBnb).burn(msg.sender, _amountInSlisBnb);
+
+        ILisBNB(lisBnb).mint(msg.sender, _amountInLisBnb);
     }
 
     /**
@@ -184,16 +228,7 @@ contract ListaStakeManager is
         emit ReDelegate(srcValidator, dstValidator, shares);
     }
 
-    /**
-     * @dev Allow users to request for unstake/withdraw funds
-     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
-     * @notice User must have approved this contract to spend SlisBnb
-     */
-    function requestWithdraw(uint256 _amountInSlisBnb)
-        external
-        override
-        whenNotPaused
-    {
+    function _addWithdrawRequest(uint256 _amountInSlisBnb) internal {
         require(_amountInSlisBnb > 0, "Invalid Amount");
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
@@ -225,13 +260,64 @@ contract ListaStakeManager is
             })
         );
         requestIndexMap[requestUUID] = withdrawalQueue.length - 1;
+    }
 
+    /**
+     * @dev Allow users to request for unstake/withdraw funds
+     * @param _amountInSlisBnb - Amount of slisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend slisBnb
+     */
+    function requestWithdraw(uint256 _amountInSlisBnb)
+        external
+        override
+        whenNotPaused
+    {
+        _addWithdrawRequest(_amountInSlisBnb);
         IERC20Upgradeable(slisBnb).safeTransferFrom(
             msg.sender,
             address(this),
             _amountInSlisBnb
         );
         emit RequestWithdraw(msg.sender, _amountInSlisBnb);
+    }
+
+    /**
+     * @dev Allow users to request for unstake/withdraw funds
+     * @param _amountInSlisBnb - Amount of slisBnb to swap for withdraw
+     * @notice User must have approved this contract to spend slisBnb
+     */
+    function redeem(uint256 _amountInSlisBnb)
+    external
+    override
+    whenNotPaused
+    {
+        _addWithdrawRequest(_amountInSlisBnb);
+        IERC20Upgradeable(slisBnb).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _amountInSlisBnb
+        );
+        emit RequestWithdraw(msg.sender, _amountInSlisBnb);
+    }
+
+    /**
+     * @dev Allows user to request for unstake/withdraw funds
+     * @param _amountInLisBnb - Amount of lisBnb to swap for withdraw
+    */
+    function redeemWithLisBnb(uint256 _amountInLisBnb)
+    external
+    override
+    whenNotPaused
+    {
+        require(_amountInLisBnb > 0, "Invalid lisBNB Amount");
+        uint256 _amountInSlisBnb = convertBnbToSnBnb(_amountInLisBnb);
+        require(_amountInSlisBnb > 0, "Invalid slisBnb Amount");
+
+        ILisBNB(lisBnb).burn(msg.sender, _amountInLisBnb);
+
+        ISLisBNB(slisBnb).mint(address(this), _amountInSlisBnb);
+
+        _addWithdrawRequest(_amountInSlisBnb);
     }
 
     /**
@@ -681,7 +767,7 @@ contract ListaStakeManager is
     }
 
     function getTotalPooledBnb() public view override returns (uint256) {
-        return (amountToDelegate + totalDelegated);
+        return (amountToDelegate + totalDelegated - ILisBNB(lisBnb).totalSupply());
     }
 
     function getContracts()
@@ -981,5 +1067,14 @@ contract ListaStakeManager is
             }
         }
         return totalBnb;
+    }
+
+    /**
+     * @dev set the address of the lisBnb token
+     * @param token - the address of the lisBnb token
+     */
+    function setLisBNB(address token) external onlyManager {
+        require(token != address(0), "zero address provided");
+        lisBnb = token;
     }
 }
