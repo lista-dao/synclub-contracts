@@ -1,23 +1,23 @@
 {
-  "name": "bnbx",
+  "name": "lista-liquid-staking",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "deploy": "npx hardhat run ./scripts/deploy.ts",
-    "test": "hardhat --network hardhat test test/snStakeManager/staking.ts",
+    "test": "hardhat --network hardhat test test/stakeManager/staking.ts",
     "coverage": "hardhat --network hardhat coverage"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/stader-labs/bnbX.git"
+    "url": "git+https://github.com/lista-dao/synclub-contracts.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/stader-labs/bnbX/issues"
+    "url": "https://github.com/lista-dao/synclub-contracts/issues"
   },
-  "homepage": "https://github.com/stader-labs/bnbX#readme",
+  "homepage": "https://github.com/lista-dao/synclub-contracts#readme",
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^4.0.4",
     "@nomiclabs/hardhat-ethers": "^2.0.6",
