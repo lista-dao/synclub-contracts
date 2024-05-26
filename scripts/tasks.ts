@@ -34,6 +34,11 @@ export async function deployProxy(
   const contractImplAddress =
     await hre.upgrades.erc1967.getImplementationAddress(contract.address);
 
+  await hre.run("verify:verify", {
+    address: contract.address,
+    constructorArguments: args,
+  });
+
   console.log(`Proxy ${contractName} deployed to:`, contract.address);
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }

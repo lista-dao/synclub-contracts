@@ -25,6 +25,7 @@ describe("ListaStakeManager::access", function () {
     const { deployer, addrs } = await loadFixture(accountFixture);
     this.addrs = addrs;
     this.deployer = deployer;
+
     const { deployMockContract } = await loadFixture(deployFixture);
     mockNativeStaking = await deployMockContract("MockNativeStaking", {
       address: NATIVE_STAKING,
@@ -67,6 +68,7 @@ describe("ListaStakeManager::access", function () {
   });
 
   it("Can't propose new manager if caller is not manager", async function () {
+    console.log("address: ", this.addrs[2].address);
     await expect(
       stakeManager.connect(manager).proposeNewManager(this.addrs[2].address)
     ).to.be.revertedWith("Old address == new address");
@@ -78,21 +80,28 @@ describe("ListaStakeManager::access", function () {
 
   it("Should be able to propose new manager by manager", async function () {
     const nextManager = this.addrs[6].address;
+    const originManager = (await stakeManager.getContracts())[0];
+
+    console.log("stakeManager manager1: ", originManager);
     const tx = await stakeManager
       .connect(manager)
       .proposeNewManager(nextManager);
 
+    console.log("nextManager manager1: ", nextManager);
     expect(tx).to.emit(stakeManager, "ProposeManager").withArgs(nextManager);
   });
 
-  it("Can't accept new manaer if caller isn't be proposed", async function () {
+  it("Can't accept new manager if caller isn't be proposed", async function () {
     await expect(
       stakeManager.connect(this.addrs[0]).acceptNewManager()
     ).to.be.revertedWith("Accessible only by Proposed Manager");
   });
 
-  it("Should be able to accept new manaer by proposed manager", async function () {
+  it("Should be able to accept new manager by proposed manager", async function () {
     const tx = await stakeManager.connect(this.addrs[6]).acceptNewManager();
+    const originManager = (await stakeManager.getContracts())[0];
+
+    console.log("stakeManager manager2: ", originManager);
 
     expect(tx)
       .to.emit(stakeManager, "SetManager")
@@ -101,6 +110,21 @@ describe("ListaStakeManager::access", function () {
     manager = this.addrs[6];
     const newManager = (await stakeManager.getContracts())[0];
     expect(newManager).to.equals(manager.address);
+  });
+
+  it("Can't call redelegate if caller is not bot", async function () {
+    await expect(
+      stakeManager.connect(manager).redelegate(ADDRESS_ZERO, ADDRESS_ZERO, 0)
+    ).to.be.revertedWith(
+      `is missing role ${ethers.utils.id(
+        "BOT"
+      )}`
+    );
+
+    await expect(
+      stakeManager.connect(bot).redelegate(ADDRESS_ZERO, ADDRESS_ZERO, 0)
+    ).to.be.revertedWith("Invalid Redelegation");
+
   });
 
   it("Can't revoke bot role if caller is not admin", async function () {
@@ -153,27 +177,27 @@ describe("ListaStakeManager::access", function () {
     bot = this.addrs[7];
   });
 
-  it("Can't set bc validator if caller is not manager", async function () {
+  it("Can't set bsc validator if caller is not manager", async function () {
     await expect(
-      stakeManager.connect(this.deployer).setBCValidator(bot.address)
+      stakeManager.connect(this.deployer).setBSCValidator(bot.address)
     ).to.be.revertedWith("Accessible only by Manager");
 
     await expect(
-      stakeManager.connect(manager).setBCValidator(this.addrs[5].address)
+      stakeManager.connect(manager).setBSCValidator(this.addrs[5].address)
     ).to.be.revertedWith("Old address == new address");
 
     await expect(
-      stakeManager.connect(manager).setBCValidator(ADDRESS_ZERO)
+      stakeManager.connect(manager).setBSCValidator(ADDRESS_ZERO)
     ).to.be.revertedWith("zero address provided");
   });
 
-  it("Should be able to set bc validator by manager", async function () {
+  it("Should be able to set bsc validator by manager", async function () {
     const tx = await stakeManager
       .connect(manager)
-      .setBCValidator(this.addrs[8].address);
+      .setBSCValidator(this.addrs[8].address);
 
     expect(tx)
-      .to.emit(stakeManager, "SetBCValidator")
+      .to.emit(stakeManager, "SetBSCValidator")
       .withArgs(this.addrs[8].address);
   });
 
@@ -223,7 +247,7 @@ describe("ListaStakeManager::access", function () {
 
   it("Should be able to set sync fee by admin", async function () {
     await stakeManager.deposit({ value: toWei("1") });
-    await stakeManager.connect(bot).delegate({ value: RELAYER_FEE });
+    await stakeManager.connect(bot).delegateTo({ value: RELAYER_FEE });
     await nativeStakingSigner.sendTransaction({
       to: stakeManager.address,
       value: toWei("0.01"),
