@@ -76,6 +76,13 @@ task("deployListaStakeManagerProxy", "Deploy ListaStakeManager Proxy only")
     }
   );
 
+task(
+  "deployListaStakeManagerImpl",
+  "Deploy ListaStakeManager Implementation only"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await deployDirect(hre, "ListaStakeManager");
+});
+
 task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
   .addPositionalParam("snBnb")
   .addPositionalParam("admin")
