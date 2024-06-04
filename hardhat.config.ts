@@ -49,6 +49,40 @@ task("deploySnBnbImpl", "Deploy SnBnb Implementation only").setAction(
   }
 );
 
+task("deployListaStakeManagerProxy", "Deploy ListaStakeManager Proxy only")
+  .addPositionalParam("slisBnb")
+  .addPositionalParam("admin")
+  .addPositionalParam("manager")
+  .addPositionalParam("bot")
+  .addPositionalParam("fee")
+  .addPositionalParam("revenuePool")
+  .addPositionalParam("validator")
+  .setAction(
+    async (
+      { slisBnb, admin, manager, bot, fee, revenuePool, validator },
+      hre: HardhatRuntimeEnvironment
+    ) => {
+      await deployProxy(
+        hre,
+        "ListaStakeManager",
+        slisBnb,
+        admin,
+        manager,
+        bot,
+        fee,
+        revenuePool,
+        validator
+      );
+    }
+  );
+
+task(
+  "deployListaStakeManagerImpl",
+  "Deploy ListaStakeManager Implementation only"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await deployDirect(hre, "ListaStakeManager");
+});
+
 task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
   .addPositionalParam("snBnb")
   .addPositionalParam("admin")

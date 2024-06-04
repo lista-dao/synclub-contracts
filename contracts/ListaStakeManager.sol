@@ -170,7 +170,7 @@ contract ListaStakeManager is
         external
         override
         whenNotPaused
-        onlyManager
+        onlyRole(BOT)
     {
         require(srcValidator != dstValidator, "Invalid Redelegation");
         require(validators[dstValidator], "Inactive dst validator");
