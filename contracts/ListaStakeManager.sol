@@ -38,7 +38,8 @@ contract ListaStakeManager is
     // Global UUID for each withdrawal request
     uint256 public requestUUID;
 
-    // UUID for the next confirmed request; req whose uuid < nextConfirmedRequestUUID is claimable
+    // UUID for the next confirmed request;
+    // requests whose uuid < nextConfirmedRequestUUID is claimable
     uint256 public nextConfirmedRequestUUID;
 
     // Buffer amount for undelegation
@@ -100,6 +101,16 @@ contract ListaStakeManager is
 
     // The minimum amount of BNB required for a withdrawal
     uint256 public minBnb;
+
+    // Request uuid => user address
+    // Added to support auto claim since the user address is not stored in the withdrawalQueue
+    mapping(uint256 => address) public addressMap;
+
+    // The gas limit for auto claim transfer
+    uint256 public transferGasLimit;
+
+    // The fee charged on requestWithdraw
+    uint256 public withdrawFee;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -224,10 +235,12 @@ contract ListaStakeManager is
      */
     function requestWithdraw(uint256 _amountInSlisBnb)
         external
+        payable
         override
         whenNotPaused
     {
         require(_amountInSlisBnb > 0, "Invalid slisBnb Amount");
+        require(msg.value == withdrawFee, "Incorrect fee amount");
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
         require(bnbToWithdraw > minBnb, "Bnb amount is too small to withdraw");
@@ -256,6 +269,7 @@ contract ListaStakeManager is
             })
         );
         requestIndexMap[requestUUID] = withdrawalQueue.length - 1;
+        addressMap[requestUUID] = msg.sender;
 
         IERC20Upgradeable(slisBnb).safeTransferFrom(
             msg.sender,
@@ -369,6 +383,54 @@ contract ListaStakeManager is
         _amount = undelegatedAmount;
 
         emit ClaimUndelegatedFrom(_validator, _uuid, _amount);
+    }
+
+    /**
+     * @dev Bot uses this function to transfer the claimed BNB per user's request
+     * @param _startUUID - the uuid of the request in the withdrawalQueue, Bot will start from this uuid to claim for users
+     * @param _maxNum - the maximum number of requests to auto claim by Bot
+     */
+    function autoClaim(uint256 _startUUID, uint256 _maxNum) external whenNotPaused onlyRole(BOT) {
+        require(_startUUID < nextConfirmedRequestUUID, "Invalid start UUID");
+        require(_maxNum > 0, "Invalid maxNum");
+
+        uint256 _endUUID = _startUUID + _maxNum - 1; // inclusive
+        if (_endUUID >= nextConfirmedRequestUUID) {
+            _endUUID = nextConfirmedRequestUUID - 1; // only loop through the confirmed requests
+        }
+
+        // the number of requests that have been auto-claimed
+        uint256 num = 0;
+        for (uint256 i = _startUUID; i <= _endUUID; ++i) {
+            uint256 index = requestIndexMap[i];
+            UserRequest memory request = withdrawalQueue[index];
+            require(request.uuid < nextConfirmedRequestUUID, "Not able to claim yet"); // TODO: can be removed
+
+            address user = addressMap[i];
+            require(user != address(0), "Invalid user address");
+
+            // remove the request from `userWithdrawalRequests`
+            WithdrawalRequest[] storage userRequests = userWithdrawalRequests[user];
+            uint256 count = userRequests.length;
+            while (count > 0) {
+                --count;
+                // if uuid is unclaimed, try transfer the BNB to the user
+                // * if transfer success, remove it from `userWithdrawalRequests`
+                // * if transfer failed, keep it in `userWithdrawalRequests` for user to claim manually
+                if (userRequests[count].uuid == i) {
+                    (bool success,) = user.call{ gas: transferGasLimit, value: request.amount }("");
+                    if (success) {
+                        userRequests[count] = userRequests[userRequests.length - 1];
+                        userRequests.pop();
+                        num += 1;
+                        emit ClaimWithdrawal(user, count, request.amount); // TODO: emit uuid instead of index
+                    }
+                    break;
+                }
+            }
+        }
+
+        emit AutoClaim(_startUUID, _endUUID, num);
     }
 
     /**

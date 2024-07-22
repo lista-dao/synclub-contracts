@@ -42,7 +42,7 @@ interface IStakeManager {
     function redelegate(address srcValidator, address dstValidator, uint256 shares)
         external;
 
-    function requestWithdraw(uint256 _amountInSnBnb) external;
+    function requestWithdraw(uint256 _amountInSnBnb) external payable;
 
     function claimWithdraw(uint256 _idx) external;
 
@@ -153,6 +153,7 @@ interface IStakeManager {
     event DelegateTo(address _validator, uint256 _amount, bool _delegateVotePower);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInSlisBnb);
+    event AutoClaim(uint256 _startUUID, uint256 _endUUID, uint256 _num);
     event ClaimWithdrawal(
         address indexed _account,
         uint256 _idx,
