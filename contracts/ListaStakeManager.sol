@@ -270,8 +270,16 @@ contract ListaStakeManager is
      * @param _idx - The index of the request in the array returns by getUserWithdrawalRequests()
      */
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
-        address user = msg.sender;
-        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[user];
+        claimWithdrawFor(msg.sender, _idx);
+    }
+
+    /**
+     * @dev This function allows to claim the requested withdrawals for other users
+     * @param _user - The address of the user who raised WithdrawRequest
+     * @param _idx - The index of the request in the array returns by getUserWithdrawalRequests()
+     */
+    function claimWithdrawFor(address _user, uint256 _idx) public override whenNotPaused {
+        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[_user];
 
         require(_idx < userRequests.length, "Invalid index");
 
@@ -284,9 +292,9 @@ contract ListaStakeManager is
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
 
-        AddressUpgradeable.sendValue(payable(user), request.amount);
+        AddressUpgradeable.sendValue(payable(_user), request.amount);
 
-        emit ClaimWithdrawal(user, _idx, request.amount);
+        emit ClaimWithdrawal(_user, _idx, request.amount);
     }
 
     /**
