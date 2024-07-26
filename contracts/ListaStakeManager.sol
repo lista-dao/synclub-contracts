@@ -62,6 +62,9 @@ contract ListaStakeManager is
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
+    // Guardian role can pause the contract
+    bytes32 public constant GUARDIAN = keccak256("GUARDIAN");
+
     address private manager;
     address private proposedManager;
     uint256 public synFee; // range {0-10_000_000_000}
@@ -871,10 +874,17 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Flips the pause state
+     * @dev Pauses the contract by Guardian
      */
-    function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        paused() ? _unpause() : _pause();
+    function pause() external onlyRole(GUARDIAN) {
+        _pause();
+    }
+
+    /**
+     * @dev Unpauses the contract by Admin
+     */
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     /**
