@@ -80,7 +80,7 @@ task(
   "deployListaStakeManagerImpl",
   "Deploy ListaStakeManager Implementation only"
 ).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
-  await deployDirect(hre, "ListaStakeManager");
+  await deployDirect(hre, "contracts/ListaStakeManager.sol:ListaStakeManager");
 });
 
 task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
