@@ -906,13 +906,6 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Unpauses the contract by Admin
-     */
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
-
-    /**
      * @dev Flips the vote power flag
      */
     function toggleVote() external onlyRole(DEFAULT_ADMIN_ROLE) {

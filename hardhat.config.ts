@@ -118,7 +118,7 @@ task("upgradeStakeManagerProxy", "Upgrade StakeManager Proxy")
   });
 
 
-task("upgradeStakeManagerProxy", "ForceImport Upgrade StakeManager Proxy")
+task("forceUpgradeStakeManagerProxy", "ForceImport Upgrade StakeManager Proxy")
   .addPositionalParam("proxyAddress")
   .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
     await forceUpgradeProxy(hre, "contracts/ListaStakeManager.sol:ListaStakeManager", "contracts/oldContracts/ListaStakeManager.sol:ListaStakeManager", proxyAddress);
