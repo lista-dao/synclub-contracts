@@ -64,10 +64,32 @@ export async function upgradeProxy(
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }
 
-export async function validateUpgrade(
+export async function forceUpgradeProxy(
   hre: HardhatRuntimeEnvironment,
+  contractName: string,
   oldContractName: string,
-  newContractName: string
+  proxyAddress: string
+) {
+  const Contract = await hre.ethers.getContractFactory(contractName);
+
+  console.log(`Upgrading ${contractName} with proxy at: ${proxyAddress}`);
+  const OldListaStakeManager = await hre.ethers.getContractFactory("contracts/oldContracts/ListaStakeManager.sol:ListaStakeManager");
+
+  await hre.upgrades.forceImport(proxyAddress, OldListaStakeManager);
+  const contract = await hre.upgrades.upgradeProxy(proxyAddress, Contract, {unsafeAllowRenames: true});
+  await contract.deployed();
+
+  const contractImplAddress =
+    await hre.upgrades.erc1967.getImplementationAddress(proxyAddress);
+
+  console.log(`Proxy ${contractName} deployed to:`, contract.address);
+  console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
+}
+
+export async function validateUpgrade(
+    hre: HardhatRuntimeEnvironment,
+    oldContractName: string,
+    newContractName: string
 ) {
   const OldContract = await hre.ethers.getContractFactory(oldContractName);
   const NewContract = await hre.ethers.getContractFactory(oldContractName);

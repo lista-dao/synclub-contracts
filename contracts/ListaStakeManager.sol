@@ -26,8 +26,8 @@ contract ListaStakeManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    // Deprecated variable; always zero
-    uint256 public totalSnBnbToBurn;
+    // Deprecated variable
+    uint256 public placeholder;
 
     // Total delegations including unbonding BNB
     uint256 public totalDelegated;
@@ -235,10 +235,12 @@ contract ListaStakeManager is
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
         require(bnbToWithdraw > minBnb, "Bnb amount is too small to withdraw");
 
-        // TODO: use withdrawalQueue[length-1]
-        require(withdrawalQueue.length != 0, "Queue is empty");
-        uint256 totalAmount = bnbToWithdraw + withdrawalQueue[requestIndexMap[requestUUID]].totalAmount;
-        uint256 totalAmountInSlisBnb = _amountInSlisBnb + withdrawalQueue[requestIndexMap[requestUUID]].totalAmountInSlisBnb;
+        uint256 totalAmount = bnbToWithdraw;
+        uint256 totalAmountInSlisBnb = _amountInSlisBnb;
+        if (withdrawalQueue.length != 0) {
+            totalAmount += withdrawalQueue[requestIndexMap[requestUUID]].totalAmount;
+            totalAmountInSlisBnb += withdrawalQueue[requestIndexMap[requestUUID]].totalAmountInSlisBnb;
+        }
 
         requestUUID++;
         userWithdrawalRequests[msg.sender].push(
@@ -288,16 +290,35 @@ contract ListaStakeManager is
 
         WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
+        uint256 amount;
 
-        require(uuid < nextConfirmedRequestUUID, "Not able to claim yet");
+        // 1. queue.length == 0 => old request
+        // 2. queue.length > 0 && uuid < queue[0].uuid => old request
+        // 3. queue.length > 0 && uuid >= queue[0].uuid => new request
+
+        if (withdrawalQueue.length != 0 && uuid >= withdrawalQueue[0].uuid) {
+            // new request
+            UserRequest storage request = withdrawalQueue[requestIndexMap[uuid]];
+            require(uuid < nextConfirmedRequestUUID, "Not able to claim yet");
+            amount = request.amount;
+        } else {
+            // old request
+            uint256 amountInSlisBnb = withdrawRequest.amountInSnBnb;
+            BotUndelegateRequest
+                storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+            require(botUndelegateRequest.endTime != 0, "Not able to claim yet");
+            uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+            uint256 totalSlisBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
+            amount = (totalBnbToWithdraw_ * amountInSlisBnb) /
+            totalSlisBnbToBurn_;
+        }
 
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
 
-        AddressUpgradeable.sendValue(payable(_user), request.amount);
+        AddressUpgradeable.sendValue(payable(_user), amount);
 
-        emit ClaimWithdrawal(_user, _idx, request.amount);
+        emit ClaimWithdrawal(_user, _idx, amount);
     }
 
     /**
@@ -320,7 +341,6 @@ contract ListaStakeManager is
         onlyRole(BOT)
         returns (uint256 _actualBnbAmount)
     {
-        require(totalSnBnbToBurn == 0, "Old requests should be processed first");
         require(_amount <= (getAmountToUndelegate() + reserveAmount), "Given bnb amount is too large");
         uint256 _shares = convertBnbToShares(_operator, _amount);
         _actualBnbAmount = convertSharesToBnb(_operator, _shares);
@@ -344,8 +364,6 @@ contract ListaStakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
-        require(totalSnBnbToBurn == 0, "Old request not undelegated yet");
-
         uint256 balanceBefore = address(this).balance;
         IStakeHub(STAKE_HUB).claim(_validator, 0);
         require(address(this).balance > balanceBefore, "Nothing to claim");
@@ -357,7 +375,7 @@ contract ListaStakeManager is
         uint256 coveredAmount = 0;
         uint256 coveredSlisBnbAmount = 0;
 
-        if (withdrawalQueue.length != 0 && withdrawalQueue[0].uuid <= nextConfirmedRequestUUID) {
+        if (withdrawalQueue.length != 0 && withdrawalQueue[withdrawalQueue.length - 1].uuid >= nextConfirmedRequestUUID) {
             uint256 startIndex = requestIndexMap[nextConfirmedRequestUUID];
             uint256 coveredMaxIndex = binarySearchCoveredMaxIndex(undelegatedQuota);
             uint256 totalAmount = withdrawalQueue[coveredMaxIndex].totalAmount - withdrawalQueue[startIndex].totalAmount + withdrawalQueue[startIndex].amount;
@@ -739,7 +757,7 @@ contract ListaStakeManager is
         uint256 amountToUndelegate = getAmountToUndelegate();
 
         _slisBnbWithdrawLimit =
-            convertBnbToSnBnb(totalDelegated - amountToUndelegate - unbondingBnb) - totalSnBnbToBurn;
+            convertBnbToSnBnb(totalDelegated - amountToUndelegate - unbondingBnb);
     }
 
     /**
@@ -871,6 +889,13 @@ contract ListaStakeManager is
     {
         IStakeHub stakeHub = IStakeHub(STAKE_HUB);
         return _amount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
+    }
+
+    /**
+     * @dev Flips the pause state by Admin
+     */
+    function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        paused() ? _unpause() : _pause();
     }
 
     /**

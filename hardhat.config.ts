@@ -4,6 +4,7 @@ import {
   deployDirect,
   deployProxy,
   upgradeProxy,
+  forceUpgradeProxy,
   validateUpgrade,
 } from "./scripts/tasks";
 
@@ -114,6 +115,13 @@ task("upgradeStakeManagerProxy", "Upgrade StakeManager Proxy")
   .addPositionalParam("proxyAddress")
   .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
     await upgradeProxy(hre, "ListaStakeManager", proxyAddress);
+  });
+
+
+task("upgradeStakeManagerProxy", "ForceImport Upgrade StakeManager Proxy")
+  .addPositionalParam("proxyAddress")
+  .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
+    await forceUpgradeProxy(hre, "contracts/ListaStakeManager.sol:ListaStakeManager", "contracts/oldContracts/ListaStakeManager.sol:ListaStakeManager", proxyAddress);
   });
 
 task(
