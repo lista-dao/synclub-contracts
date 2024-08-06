@@ -744,7 +744,8 @@ contract ListaStakeManager is
             } else {
                 _amount = convertSnBnbToBnb(amountInSnBnb);
             }
-            _isClaimable = (botUndelegateRequest.endTime != 0);
+            // old requests are always claimable since the migration from BC to BSC has done
+            _isClaimable = true;
         }
     }
 
