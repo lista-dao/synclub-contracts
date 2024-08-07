@@ -1,17 +1,8 @@
-import { ethers } from "hardhat";
+import * as hrc from "hardhat";
+import { deployDirect } from "./tasks";
 
 async function main() {
-  const stakeManagerContractFactory = await ethers.getContractFactory(
-    "ListaStakeManager"
-  );
-  const stakeManagerContract = await stakeManagerContractFactory.deploy();
-
-  await stakeManagerContract.deployed();
-
-  console.log(
-    "ListaStakeManager Contract deployed to:",
-    stakeManagerContract.address
-  );
+  deployDirect(hrc, "SnBnb");
 }
 
 // We recommend this pattern to be able to use async/await everywhere

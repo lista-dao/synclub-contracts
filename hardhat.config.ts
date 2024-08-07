@@ -31,7 +31,6 @@ task("deploySnBnbProxy", "Deploy SnBnb Proxy only")
     await deployProxy(hre, "SnBnb", admin);
   });
 
-
 task("deploySlisBnbProxy", "Deploy slisBNB Proxy and Impl")
   .addPositionalParam("admin")
   .setAction(async ({ admin }, hre: HardhatRuntimeEnvironment) => {
@@ -77,13 +76,6 @@ task("deployListaStakeManagerProxy", "Deploy ListaStakeManager Proxy only")
     }
   );
 
-task(
-  "deployListaStakeManagerImpl",
-  "Deploy ListaStakeManager Implementation only"
-).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
-  await deployDirect(hre, "contracts/ListaStakeManager.sol:ListaStakeManager");
-});
-
 task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
   .addPositionalParam("snBnb")
   .addPositionalParam("admin")
@@ -117,18 +109,27 @@ task("upgradeStakeManagerProxy", "Upgrade StakeManager Proxy")
     await upgradeProxy(hre, "ListaStakeManager", proxyAddress);
   });
 
-
 task("forceUpgradeStakeManagerProxy", "ForceImport Upgrade StakeManager Proxy")
   .addPositionalParam("proxyAddress")
   .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
-    await forceUpgradeProxy(hre, "contracts/ListaStakeManager.sol:ListaStakeManager", "contracts/oldContracts/ListaStakeManager.sol:ListaStakeManager", proxyAddress);
+    await forceUpgradeProxy(
+      hre,
+      "contracts/ListaStakeManager.sol:ListaStakeManager",
+      "contracts/oldContracts/ListaStakeManager.sol:ListaStakeManager",
+      proxyAddress
+    );
   });
 
 task(
   "deployStakeManagerImpl",
   "Deploy StakeManager Implementation only"
 ).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
-  await deployDirect(hre, "SnStakeManager");
+  await validateUpgrade(
+    hre,
+    "contracts/oldContracts/ListaStakeManager.sol:ListaStakeManager",
+    "contracts/ListaStakeManager.sol:ListaStakeManager"
+  );
+  await deployDirect(hre, "contracts/ListaStakeManager.sol:ListaStakeManager");
 });
 
 task(
@@ -139,12 +140,11 @@ task(
   await deployDirect(hre, "SLisBNB");
 });
 
-task(
-  "deployMockStaking",
-  "Deploy Mock Native Staking contract"
-).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
-  await deployDirect(hre, "MockNativeStaking");
-});
+task("deployMockStaking", "Deploy Mock Native Staking contract").setAction(
+  async (args, hre: HardhatRuntimeEnvironment) => {
+    await deployDirect(hre, "MockNativeStaking");
+  }
+);
 
 task(
   "validateUpgrade",
