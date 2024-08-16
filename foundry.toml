@@ -2,6 +2,12 @@
 solc_version = "0.8.4"
 optimizer = true
 optimizer_runs = 20_000
+libs = ["lib"]
+remappings=[
+    "@src/=src",
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
+]
 
 [profile.ci]
 verbosity = 4
