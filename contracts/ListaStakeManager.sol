@@ -110,7 +110,7 @@ contract ListaStakeManager is
     uint256 public minBnb;
 
     // principal * annualRate / 365; range {0-10_000_000_000}
-    // 1% as of Oct 2024
+    // 0.1% as of Oct 2024
     uint256 public annualRate;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
