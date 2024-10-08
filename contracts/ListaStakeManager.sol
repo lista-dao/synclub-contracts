@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
+import "./libraries/SLisLibrary.sol";
+
 import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
@@ -67,7 +69,10 @@ contract ListaStakeManager is
 
     address private manager;
     address private proposedManager;
-    uint256 public synFee; // range {0-10_000_000_000}
+
+    // Protocol fee rate charged on staking rewards; range {0-10_000_000_000}
+    // 5% as of Oct 2024
+    uint256 public synFee;
 
     address public revenuePool;
     address public redirectAddress;
@@ -103,6 +108,10 @@ contract ListaStakeManager is
 
     // The minimum amount of BNB required for a withdrawal
     uint256 public minBnb;
+
+    // principal * annualRate / 365; range {0-10_000_000_000}
+    // 1% as of Oct 2024
+    uint256 public annualRate;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -932,21 +941,15 @@ contract ListaStakeManager is
     /**
      * @dev Allows bot to compound rewards
      */
-    function compoundRewards()
-    external
-    override
-    whenNotPaused
-    onlyRole(BOT)
+    function compoundRewards() external override whenNotPaused onlyRole(BOT)
     {
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
         require(totalBNBInValidators + undelegatedQuota > totalDelegated, "No new fee to compound");
         uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
-        uint256 fee = 0;
-        if (synFee > 0) {
-            fee = totalProfit * synFee / TEN_DECIMALS;
-        }
+
+        uint256 fee = SLisLibrary.calculateFee(totalDelegated, totalProfit, annualRate, synFee, TEN_DECIMALS);
 
         totalDelegated += totalProfit;
         uint256 slisBNBAmount = convertBnbToSnBnb(fee);
