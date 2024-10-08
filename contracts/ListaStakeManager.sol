@@ -572,17 +572,32 @@ contract ListaStakeManager is
 
     /**
      * @dev Sets the protocol fee to be charged on staking rewards
-     * @param _synFee - the fee to be charged on rewards; 10_000 (100%)
+     * @param _synFee - the fee to be charged on rewards; 500_000_000 (5%)
      */
     function setSynFee(uint256 _synFee)
         external
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(_synFee <= TEN_DECIMALS, "_synFee must not exceed 10000 (100%)");
+        require(_synFee <= TEN_DECIMALS, "_synFee must not exceed 10000000000 (100%)");
         synFee = _synFee;
 
         emit SetSynFee(_synFee);
+    }
+
+    /**
+     * @dev Sets the rate for the protocol fee to be charged on total staked amount
+     * @param _annualRate - the rate to be charged on total staked amount; 10_000_000 (0.1%) by default
+     */
+    function setAnnualRate(uint256 _annualRate)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_annualRate <= TEN_DECIMALS, "_annualRate must not exceed 10000000000 (100%)");
+        annualRate = _annualRate;
+
+        emit SetAnnualRate(_annualRate);
     }
 
     /**

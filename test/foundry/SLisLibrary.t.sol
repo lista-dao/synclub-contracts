@@ -6,8 +6,6 @@ import "forge-std/console.sol";
 
 import "../../contracts/libraries/SLisLibrary.sol";
 
-//import "../../contracts/ListaStakeManager.sol";
-
 contract SLisLibraryTest is Test {
 
     uint256 decimals = 1e10;
