@@ -47,6 +47,7 @@ contract ListaStakeManagerMainnet is Test {
         uint256 balance = govToken.balanceOf(address(stakeManager));
         uint256 votes_A = govToken.getVotes(validator_A);
 
+        // delegate voting power to validator_A
         vm.prank(admin);
         stakeManager.delegateVoteTo(validator_A);
 
@@ -54,6 +55,13 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.delegates(address(stakeManager)), validator_A);
         assertEq(govToken.getVotes(address(stakeManager)), 0);
         assertEq(votes_A, balance);
+
+        // delegate voting power to user_A
+        vm.prank(admin);
+        stakeManager.delegateVoteTo(user_A);
+        assertEq(govToken.delegates(address(stakeManager)), user_A);
+        assertEq(govToken.getVotes(address(stakeManager)), 0);
+        assertEq(govToken.getVotes(user_A), balance);
     }
 
     // cancel the vote delegation by delegating to itself

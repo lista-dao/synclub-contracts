@@ -466,12 +466,16 @@ contract ListaStakeManager is
         return startIndex;
     }
 
+    /**
+     * @dev Allows to delegate all voting power to a specific address
+     * @param _delegateTo - Address to delegate voting power to; cancel delegation if address is this contract
+     */
     function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
 
         uint256 votePower = govToken.getVotes(_delegateTo);
         govToken.delegate(_delegateTo);
-        votePower = govToken.getVotes(address(this)) - votePower;
+        votePower = govToken.getVotes(_delegateTo) - votePower;
 
         emit DelegateVoteTo(_delegateTo, votePower);
     }
