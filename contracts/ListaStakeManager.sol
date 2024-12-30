@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 
 import "./libraries/SLisLibrary.sol";
 
@@ -78,12 +79,13 @@ contract ListaStakeManager is
     address public redirectAddress;
 
     address private constant STAKE_HUB = 0x0000000000000000000000000000000000002002;
+    address private constant GOV_BNB = 0x0000000000000000000000000000000000002005;
 
     // Validators are whitelisted or not
     // The operator address of the validator => true/false
     mapping(address => bool) public validators;
 
-    // Whether to delegate voting power to validator or not
+    // Whether to delegate voting power to validator or not on delegation and re-delegation
     bool public delegateVotePower;
 
     // The amount Bnb received but not claimable yet
@@ -462,6 +464,16 @@ contract ListaStakeManager is
         }
 
         return startIndex;
+    }
+
+    function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
+
+        uint256 votePower = govToken.getVotes(_delegateTo);
+        govToken.delegate(_delegateTo);
+        votePower = govToken.getVotes(address(this)) - votePower;
+
+        emit DelegateVoteTo(_delegateTo, votePower);
     }
 
     /**
