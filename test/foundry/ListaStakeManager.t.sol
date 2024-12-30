@@ -216,53 +216,46 @@ contract ListaStakeManagerTest is Test {
         );
         vm.mockCall(
             credit_A,
-            abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 2e18),
-            abi.encode(2000000000000000000)
+            abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 3e18),
+            abi.encode(3000000000000000000)
         );
         vm.mockCall(
             credit_A,
-            abi.encodeWithSignature("getPooledBNBByShares(uint256)", 2e18),
-            abi.encode(2000000000000000000)
+            abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3e18),
+            abi.encode(3000000000000000000)
         );
 
         vm.prank(admin);
         stakeManager.whitelistValidator(validator_A);
-        vm.stopPrank();
 
         vm.prank(user_A);
         stakeManager.deposit{value: 10 ether}();
-        vm.stopPrank();
 
         vm.prank(bot);
         stakeManager.delegateTo(validator_A, 10 ether);
-        vm.stopPrank();
 
         assertEq(stakeManager.getTotalPooledBnb(), 10 ether);
         assertEq(slisBnb.balanceOf(user_A), 10 ether);
 
         vm.prank(user_A);
         slisBnb.approve(address(stakeManager), 5 ether);
-        vm.stopPrank();
 
         vm.prank(user_A);
         stakeManager.requestWithdraw(2 ether);
-        vm.stopPrank();
 
         vm.prank(user_A);
         stakeManager.requestWithdraw(1 ether);
-        vm.stopPrank();
 
         vm.mockCall(
             STAKE_HUB,
-            abi.encodeWithSignature("undelegate(address,uint256)", validator_A, 2 ether),
+            abi.encodeWithSignature("undelegate(address,uint256)", validator_A, 3 ether), // undelegate 3 ether
             abi.encode(0)
         );
         vm.prank(bot);
-        stakeManager.undelegateFrom(validator_A, 2 ether);
-        vm.stopPrank();
+        stakeManager.undelegateFrom(validator_A, 3 ether);
 
         assertEq(stakeManager.getTotalPooledBnb(), 10 ether);
-        assertEq(stakeManager.getAmountToUndelegate(), 1 ether); // 2 ether - 1 ether
+        assertEq(stakeManager.getAmountToUndelegate(), 0); // undelegate all requested amount
 
         skip(7 days);
 
@@ -272,21 +265,29 @@ contract ListaStakeManagerTest is Test {
         vm.etch(credit_A, address(creditMock).code);
 
         credit_A.call(abi.encodeWithSignature("setStakeManager(address)", address(stakeManager)));
-        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 2000000000000000000)); // make the mock credit contract send 2 BNB to stakeManager
+        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 3000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
 
         STAKE_HUB.call(abi.encodeWithSignature("setCreditMock(address)", credit_A));
 
         vm.prank(bot);
         stakeManager.claimUndelegated(validator_A);
-        vm.stopPrank();
 
         uint256 balanceBefore = address(user_A).balance;
         vm.prank(user_A);
         stakeManager.claimWithdraw(0);
-        vm.stopPrank();
         uint256 balanceAfter = address(user_A).balance;
 
         assertEq(balanceAfter - balanceBefore, 2 ether);
+
+        // Bot claims the rest 1 BNB for user_A
+        balanceBefore = address(user_A).balance;
+        vm.prank(user_A);
+        vm.expectRevert("AccessControl: account 0x000000000000000000000000000000000000002a is missing role 0x902cbe3a02736af9827fb6a90bada39e955c0941e08f0c63b3a662a7b17a4e2b");
+        stakeManager.claimWithdrawFor(user_A, 0);
+        vm.prank(bot);
+        stakeManager.claimWithdrawFor(user_A, 0);
+        balanceAfter = address(user_A).balance;
+        assertEq(balanceAfter - balanceBefore, 1 ether);
     }
 
     function test_setAnnualRate() public {

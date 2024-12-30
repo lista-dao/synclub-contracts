@@ -62,6 +62,7 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.delegates(address(stakeManager)), user_A);
         assertEq(govToken.getVotes(address(stakeManager)), 0);
         assertEq(govToken.getVotes(user_A), balance);
+        assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
     }
 
     // cancel the vote delegation by delegating to itself
@@ -75,7 +76,8 @@ contract ListaStakeManagerMainnet is Test {
             address(stakeManager)
         );
         assertEq(govToken.getVotes(address(stakeManager)), balance);
-        assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after cancellation
+        assertEq(govToken.getVotes(user_A), 0); // user_A has no voting power after cancellation
+        assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
     }
 
     // test delegate voting power by re-delegating
