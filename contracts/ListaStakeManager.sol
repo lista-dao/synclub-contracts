@@ -298,7 +298,7 @@ contract ListaStakeManager is
         _claimWithdrawFor(_user, _idx);
     }
 
-    function _claimWithdrawFor(address _user, uint256 _idx) internal {
+    function _claimWithdrawFor(address _user, uint256 _idx) private {
         WithdrawalRequest[] storage userRequests = userWithdrawalRequests[_user];
 
         require(_idx < userRequests.length, "Invalid index");
