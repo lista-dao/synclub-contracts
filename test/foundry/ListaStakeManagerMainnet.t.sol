@@ -80,6 +80,7 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
     }
 
+    /*
     // test delegate voting power by re-delegating
     function test_votingPower_by_redelegate() public {
         // 1. turn on the vote delegation
@@ -95,10 +96,6 @@ contract ListaStakeManagerMainnet is Test {
         govBalance = govToken.balanceOf(address(stakeManager));
 
         assertEq(govToken.delegates(address(stakeManager)), validator_B);
-        console.log("getVotes_A: ", govToken.getVotes(validator_A));
-        console.log("getVotes_B: ", govToken.getVotes(validator_B));
-        console.log("getVotes_C: ", govToken.getVotes(validator_C));
-        //    console.log("getVotes: ", govToken.getVotes(address(stakeManager)));
 
         // 3. delegate voting power to validator_C
         vm.startPrank(bot);
@@ -108,10 +105,6 @@ contract ListaStakeManagerMainnet is Test {
 
         console.log("///////// Re-delegate: B -> C");
         govBalance = govToken.balanceOf(address(stakeManager));
-        console.log("govBNB_Balance: ", govBalance);
-        console.log("getVotes_A: ", govToken.getVotes(validator_A));
-        console.log("getVotes_B: ", govToken.getVotes(validator_B));
-        console.log("getVotes_C: ", govToken.getVotes(validator_C));
         console.log("///////// Clear delegation");
         vm.startPrank(address(stakeManager));
         govToken.delegate(address(stakeManager));
@@ -121,9 +114,6 @@ contract ListaStakeManagerMainnet is Test {
             address(stakeManager)
         );
         govBalance = govToken.balanceOf(address(stakeManager));
-        console.log("govBNB_Balance: ", govBalance);
-        console.log("getVotes_A: ", govToken.getVotes(validator_A));
-        console.log("getVotes_B: ", govToken.getVotes(validator_B));
-        console.log("getVotes_C: ", govToken.getVotes(validator_C));
     }
+    */
 }

@@ -477,11 +477,11 @@ contract ListaStakeManager is
     function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
 
-        uint256 votePower = govToken.getVotes(_delegateTo);
+        uint256 votePowerBefore = govToken.getVotes(_delegateTo);
         govToken.delegate(_delegateTo);
-        votePower = govToken.getVotes(_delegateTo) - votePower;
+        uint256 votePowerAfter = govToken.getVotes(_delegateTo);
 
-        emit DelegateVoteTo(_delegateTo, votePower);
+        emit DelegateVoteTo(_delegateTo, votePowerBefore, votePowerAfter);
     }
 
     /**
