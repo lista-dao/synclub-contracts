@@ -471,7 +471,7 @@ contract ListaStakeManager is
     }
 
     /**
-     * @dev Allows to delegate all voting power to a specific address
+     * @dev Allows to delegate all voting power to a specific address; Need to delegate to stake manager itself to track its voting power
      * @param _delegateTo - Address to delegate voting power to; cancel delegation if address is this contract
      */
     function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -489,13 +489,13 @@ contract ListaStakeManager is
         govToken.delegate(_delegateTo);
         require(govToken.delegates(address(this)) == _delegateTo, "Delegation Failed");
 
-        // check voting power moved correctly
+        // Check voting power moved correctly
         if (_delegateTo != address(this)) {
             require(govToken.getVotes(address(this)) == 0, "Invalid Delegation");
             uint256 currDelegateeChange = currentVotePower - govToken.getVotes(currentDelegatee);
             uint256 newDelegateeChange = govToken.getVotes(_delegateTo) - newVotePower;
 
-            require(currDelegateeChange == newDelegateeChange && balance == currDelegateeChange, "Invalid Delegation");
+            require(currDelegateeChange == newDelegateeChange && balance == currDelegateeChange, "Invalid Change");
         } else {
             require(govToken.getVotes(address(this)) == balance, "Self-delegation Failed");
         }

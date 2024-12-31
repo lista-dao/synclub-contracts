@@ -54,7 +54,7 @@ contract ListaStakeManagerMainnet is Test {
 
         // before activation, delegate voting power to validator_A should be reverted
         vm.prank(admin);
-        vm.expectRevert("Invalid Delegation");
+        vm.expectRevert("Invalid Change");
         stakeManager.delegateVoteTo(validator_A);
 
         // Step 1, delegate voting power to stakeManager itself to track the voting power
@@ -82,6 +82,34 @@ contract ListaStakeManagerMainnet is Test {
         vm.prank(admin);
         vm.expectRevert("Already Delegated");
         stakeManager.delegateVoteTo(user_A);
+    }
+
+    function test_delegateVoteTo_and_stake_Bnb() public {
+        // Step 1, delegate voting power to stakeManager itself to track the voting power
+        vm.prank(admin);
+        stakeManager.delegateVoteTo(address(stakeManager));
+
+        // Step 2, delegate voting power to validator_A
+        uint256 balance1 = govToken.balanceOf(address(stakeManager));
+        vm.prank(admin);
+        stakeManager.delegateVoteTo(validator_A);
+
+        uint256 votes_A = govToken.getVotes(validator_A);
+        assertEq(govToken.delegates(address(stakeManager)), validator_A);
+        assertEq(govToken.getVotes(address(stakeManager)), 0);
+        assertEq(votes_A, balance1);
+
+        skip(1 days);
+
+        // Step 3, users stake BNB
+        deal(user_A, 10000 ether);
+        stakeManager.deposit{value: 10 ether}();
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, 10 ether);
+        uint256 balance2 = govToken.balanceOf(address(stakeManager));
+
+        assertEq(govToken.getVotes(validator_A), balance2);
+        assertEq(govToken.getVotes(address(stakeManager)), 0);
     }
 
     // cancel the vote delegation by delegating to itself
