@@ -475,13 +475,32 @@ contract ListaStakeManager is
      * @param _delegateTo - Address to delegate voting power to; cancel delegation if address is this contract
      */
     function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_delegateTo != address(0), "Invalid Address");
+
         IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
 
-        uint256 votePowerBefore = govToken.getVotes(_delegateTo);
-        govToken.delegate(_delegateTo);
-        uint256 votePowerAfter = govToken.getVotes(_delegateTo);
+        address currentDelegatee = govToken.delegates(address(this));
+        require(currentDelegatee != _delegateTo, "Already Delegated");
 
-        emit DelegateVoteTo(_delegateTo, votePowerBefore, votePowerAfter);
+        uint256 balance = IERC20Upgradeable(GOV_BNB).balanceOf(address(this));
+
+        uint256 newVotePower = govToken.getVotes(_delegateTo);
+        uint256 currentVotePower = govToken.getVotes(currentDelegatee);
+        govToken.delegate(_delegateTo);
+        require(govToken.delegates(address(this)) == _delegateTo, "Delegation Failed");
+
+        // check voting power moved correctly
+        if (_delegateTo != address(this)) {
+            require(govToken.getVotes(address(this)) == 0, "Invalid Delegation");
+            uint256 currDelegateeChange = currentVotePower - govToken.getVotes(currentDelegatee);
+            uint256 newDelegateeChange = govToken.getVotes(_delegateTo) - newVotePower;
+
+            require(currDelegateeChange == newDelegateeChange && balance == currDelegateeChange, "Invalid Delegation");
+        } else {
+            require(govToken.getVotes(address(this)) == balance, "Self-delegation Failed");
+        }
+
+        emit DelegateVoteTo(_delegateTo, balance);
     }
 
     /**

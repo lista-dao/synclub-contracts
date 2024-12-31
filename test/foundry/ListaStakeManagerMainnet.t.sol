@@ -47,7 +47,21 @@ contract ListaStakeManagerMainnet is Test {
         uint256 balance = govToken.balanceOf(address(stakeManager));
         uint256 votes_A = govToken.getVotes(validator_A);
 
-        // delegate voting power to validator_A
+        // delegate to zero address should be reverted
+        vm.prank(admin);
+        vm.expectRevert("Invalid Address");
+        stakeManager.delegateVoteTo(address(0));
+
+        // before activation, delegate voting power to validator_A should be reverted
+        vm.prank(admin);
+        vm.expectRevert("Invalid Delegation");
+        stakeManager.delegateVoteTo(validator_A);
+
+        // Step 1, delegate voting power to stakeManager itself to track the voting power
+        vm.prank(admin);
+        stakeManager.delegateVoteTo(address(stakeManager));
+
+        // Step 2, delegate voting power to validator_A
         vm.prank(admin);
         stakeManager.delegateVoteTo(validator_A);
 
@@ -63,6 +77,11 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.getVotes(address(stakeManager)), 0);
         assertEq(govToken.getVotes(user_A), balance);
         assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
+
+        // cannot delegate voting power to user_A again
+        vm.prank(admin);
+        vm.expectRevert("Already Delegated");
+        stakeManager.delegateVoteTo(user_A);
     }
 
     // cancel the vote delegation by delegating to itself
