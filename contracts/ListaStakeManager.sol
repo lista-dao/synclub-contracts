@@ -7,6 +7,7 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 
 import "./libraries/SLisLibrary.sol";
 
@@ -78,12 +79,13 @@ contract ListaStakeManager is
     address public redirectAddress;
 
     address private constant STAKE_HUB = 0x0000000000000000000000000000000000002002;
+    address private constant GOV_BNB = 0x0000000000000000000000000000000000002005;
 
     // Validators are whitelisted or not
     // The operator address of the validator => true/false
     mapping(address => bool) public validators;
 
-    // Whether to delegate voting power to validator or not
+    // Whether to delegate voting power to validator or not on delegation and re-delegation
     bool public delegateVotePower;
 
     // The amount Bnb received but not claimable yet
@@ -284,15 +286,19 @@ contract ListaStakeManager is
      * @param _idx - The index of the request in the array returns by getUserWithdrawalRequests()
      */
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
-        claimWithdrawFor(msg.sender, _idx);
+        _claimWithdrawFor(msg.sender, _idx);
     }
 
     /**
-     * @dev This function allows to claim the requested withdrawals for other users
+     * @dev This function allows to claim the requested withdrawals for other users; only bot can call this function
      * @param _user - The address of the user who raised WithdrawRequest
      * @param _idx - The index of the request in the array returns by getUserWithdrawalRequests()
      */
-    function claimWithdrawFor(address _user, uint256 _idx) public override whenNotPaused {
+    function claimWithdrawFor(address _user, uint256 _idx) external override whenNotPaused onlyRole(BOT) {
+        _claimWithdrawFor(_user, _idx);
+    }
+
+    function _claimWithdrawFor(address _user, uint256 _idx) private {
         WithdrawalRequest[] storage userRequests = userWithdrawalRequests[_user];
 
         require(_idx < userRequests.length, "Invalid index");
@@ -462,6 +468,39 @@ contract ListaStakeManager is
         }
 
         return startIndex;
+    }
+
+    /**
+     * @dev Allows to delegate all voting power to a specific address; Need to delegate to stake manager itself to track its voting power
+     * @param _delegateTo - Address to delegate voting power to; cancel delegation if address is this contract
+     */
+    function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_delegateTo != address(0), "Invalid Address");
+
+        IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
+
+        address currentDelegatee = govToken.delegates(address(this));
+        require(currentDelegatee != _delegateTo, "Already Delegated");
+
+        uint256 balance = IERC20Upgradeable(GOV_BNB).balanceOf(address(this));
+
+        uint256 newVotePower = govToken.getVotes(_delegateTo);
+        uint256 currentVotePower = govToken.getVotes(currentDelegatee);
+        govToken.delegate(_delegateTo);
+        require(govToken.delegates(address(this)) == _delegateTo, "Delegation Failed");
+
+        // Check voting power moved correctly
+        if (_delegateTo != address(this)) {
+            require(govToken.getVotes(address(this)) == 0, "Invalid Delegation");
+            uint256 currDelegateeChange = currentVotePower - govToken.getVotes(currentDelegatee);
+            uint256 newDelegateeChange = govToken.getVotes(_delegateTo) - newVotePower;
+
+            require(currDelegateeChange == newDelegateeChange && balance == currDelegateeChange, "Invalid Change");
+        } else {
+            require(govToken.getVotes(address(this)) == balance, "Self-delegation Failed");
+        }
+
+        emit DelegateVoteTo(_delegateTo, balance);
     }
 
     /**
