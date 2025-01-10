@@ -115,6 +115,18 @@ contract ListaStakeManager is
     // 0.1% as of Oct 2024
     uint256 public annualRate;
 
+    Refund public refund;
+
+    // manager role to refund commission
+    bytes32 public constant MANAGER = keccak256("MANAGER");
+
+    struct Refund {
+        uint256 dailySlisBnb;
+        uint256 startTime;
+        uint256 endTime;
+        uint256 reminder; // reminder of the division, slisBnb to be counted next time
+    }
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -1011,7 +1023,42 @@ contract ListaStakeManager is
             ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
         }
 
+        _burnRefundSlisBnb();
         emit RewardsCompounded(fee);
+    }
+
+    function _burnRefundSlisBnb() private {
+        if (block.timestamp < refund.startTime || block.timestamp >= refund.endTime) {
+            return; // refund is not available
+        }
+
+        ISLisBNB(slisBnb).burn(address(this), refund.dailySlisBnb);
+    }
+
+    /**
+     * @dev Allows manager to refund Lista Dao validator's commission to this contract
+     * @param _days - Number of days to split the refund
+     * @param _startTime - Start time of the refund
+     */
+    function refundCommission(uint256 _days, uint256 _startTime) external payable whenNotPaused onlyRole(MANAGER) {
+        require(block.timestamp > refund.endTime || refund.endTime == 0, "Current Refund is not finished");
+        require(msg.value > 0 && _days > 0, "Invalid Amount or Days");
+        require(_startTime >= refund.endTime, "Overlapping Refund");
+
+        uint256 refundSlisBnb = convertBnbToSnBnb(msg.value);
+        uint256 slisBnbAmount = refundSlisBnb + refund.reminder;
+        uint256 dailySlisBnb = slisBnbAmount / _days;
+        require(dailySlisBnb > 0, "Invalid Daily SlisBnb");
+
+        amountToDelegate += msg.value; // stake the refund amount
+        ISLisBNB(slisBnb).mint(address(this), refundSlisBnb); // mint slisBnb then burn daily proportion
+
+        refund.dailySlisBnb = dailySlisBnb;
+        refund.startTime = _startTime;
+        refund.endTime = _startTime + _days * 1 days;
+        refund.reminder = slisBnbAmount % _days;
+
+        emit RefundCommission(msg.value, dailySlisBnb, _days, _startTime);
     }
 
     /**
