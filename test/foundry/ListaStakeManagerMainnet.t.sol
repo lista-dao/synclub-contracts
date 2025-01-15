@@ -39,6 +39,7 @@ contract ListaStakeManagerMainnet is Test {
         stakeManager = ListaStakeManager(payable(proxy));
 
         address newImpl = address(new ListaStakeManager());
+
         vm.prank(timelock);
         proxyAdmin.upgrade(ITransparentUpgradeableProxy(proxy), newImpl);
         vm.stopPrank();
@@ -138,21 +139,62 @@ contract ListaStakeManagerMainnet is Test {
         uint256 exRate_0 = stakeManager.convertSnBnbToBnb(1 ether);
         skip(1 days);
 
+        // Refun 1 bnb, 2 days
         vm.prank(manager);
-        stakeManager.refundCommission{value: 1 ether}(2, block.timestamp); // 1 bnb, 2 days
+        stakeManager.refundCommission{value: 1 ether}(2);
         uint256 exRate_1 = stakeManager.convertSnBnbToBnb(1 ether);
 
         assertEq(exRate_1, exRate_0);
         (
             uint dailySlisBnb,
-            uint startTime,
-            uint endTime,
-            uint reminder
+            uint remainingSlisBnb,
+            uint lastBurnTime
         ) = stakeManager.refund();
 
         assertEq(dailySlisBnb, stakeManager.convertBnbToSnBnb(1 ether) / 2);
-        assertEq(reminder, stakeManager.convertBnbToSnBnb(1 ether) % 2);
+        assertEq(remainingSlisBnb, stakeManager.convertBnbToSnBnb(1 ether));
+        assertEq(lastBurnTime, 0);
 
+        skip(1 hours);
+        uint _amount = stakeManager.amountToDelegate();
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, _amount);
+
+        // First burn
         skip(1 days);
+        vm.mockCall(
+            0xE48FF82fAA5AAB796bB7E1f2208CB43008462022,
+            abi.encodeWithSignature("getPooledBNB(address)"),
+            abi.encode(3000000000000000000)
+        );
+        vm.prank(bot);
+        stakeManager.compoundRewards();
+        (
+            uint dailySlisBnb_2,
+            uint remainingSlisBnb_2,
+            uint lastBurnTime_2
+        ) = stakeManager.refund();
+        assertEq(dailySlisBnb_2, dailySlisBnb);
+        assertEq(remainingSlisBnb_2, remainingSlisBnb - dailySlisBnb);
+        assertEq(lastBurnTime_2, block.timestamp);
+
+        // Second burn
+        skip(1 days);
+       // vm.clearMockedCalls();
+        vm.mockCall(
+            0xE48FF82fAA5AAB796bB7E1f2208CB43008462022,
+            abi.encodeWithSignature("getPooledBNB(address)"),
+            abi.encode(860000000000000000000000000)
+        );
+        vm.prank(bot);
+        stakeManager.compoundRewards();
+        (
+            uint dailySlisBnb_3,
+            uint remainingSlisBnb_3,
+            uint lastBurnTime_3
+        ) = stakeManager.refund();
+        assertEq(dailySlisBnb_3, dailySlisBnb);
+        assertEq(remainingSlisBnb_3, 0);
+        assertEq(lastBurnTime_3, block.timestamp);
     }
 }
