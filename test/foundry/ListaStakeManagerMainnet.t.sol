@@ -11,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 
 import "../../contracts/ListaStakeManager.sol";
 import "../../contracts/SLisBNB.sol";
+import "../../contracts/interfaces/IStakeCredit.sol";
 
 contract ListaStakeManagerMainnet is Test {
     ListaStakeManager public stakeManager;
@@ -30,6 +31,8 @@ contract ListaStakeManagerMainnet is Test {
     address validator_A = 0x343dA7Ff0446247ca47AA41e2A25c5Bbb230ED0A;
     address validator_B = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
     address validator_C = 0x7766A5EE8294343bF6C8dcf3aA4B6D856606703A;
+    IStakeCredit credit_A =
+        IStakeCredit(0xeC06CB25d9add4bDd67B61432163aFF9028Aa921);
 
     address user_A = address(0xAA);
 
@@ -133,7 +136,7 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
     }
 
-    function test_refundCommission() public {
+    function test_refundCommission_normal() public {
         deal(manager, 100000 ether);
 
         uint256 exRate_0 = stakeManager.convertSnBnbToBnb(1 ether);
@@ -162,10 +165,11 @@ contract ListaStakeManagerMainnet is Test {
 
         // First burn
         skip(1 days);
+        uint pooled_A = credit_A.getPooledBNB(address(stakeManager));
         vm.mockCall(
-            0xE48FF82fAA5AAB796bB7E1f2208CB43008462022,
+            address(credit_A),
             abi.encodeWithSignature("getPooledBNB(address)"),
-            abi.encode(3000000000000000000)
+            abi.encode(pooled_A + 1 ether + 0.1 ether) // original + refund + reward
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
@@ -180,11 +184,11 @@ contract ListaStakeManagerMainnet is Test {
 
         // Second burn
         skip(1 days);
-       // vm.clearMockedCalls();
+        // vm.clearMockedCalls();
         vm.mockCall(
-            0xE48FF82fAA5AAB796bB7E1f2208CB43008462022,
+            address(credit_A),
             abi.encodeWithSignature("getPooledBNB(address)"),
-            abi.encode(860000000000000000000000000)
+            abi.encode(pooled_A + 1 ether + 0.22 ether) // original + refund + reward
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
@@ -196,5 +200,73 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(dailySlisBnb_3, dailySlisBnb);
         assertEq(remainingSlisBnb_3, 0);
         assertEq(lastBurnTime_3, block.timestamp);
+
+        // Third time, no burn
+        skip(1 days);
+        vm.mockCall(
+            address(credit_A),
+            abi.encodeWithSignature("getPooledBNB(address)"),
+            abi.encode(pooled_A + 3 ether)
+        );
+        vm.prank(bot);
+        stakeManager.compoundRewards();
+        (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager.refund();
+        assertEq(dailySlisBnb, dailySlisBnb_3);
+        assertEq(remainingSlisBnb, 0);
+        assertEq(lastBurnTime, lastBurnTime_3);
+
+        // Second Refund: 2 bnb, 3 days
+        vm.prank(manager);
+        stakeManager.refundCommission{value: 2 ether}(3);
+        (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager.refund();
+
+        assertEq(dailySlisBnb, stakeManager.convertBnbToSnBnb(2 ether) / 3);
+        assertEq(remainingSlisBnb, stakeManager.convertBnbToSnBnb(2 ether));
+        assertEq(lastBurnTime, lastBurnTime_3);
+
+        // Second Refund: 1st burn
+        skip(1 days);
+        vm.mockCall(
+            address(credit_A),
+            abi.encodeWithSignature("getPooledBNB(address)"),
+            abi.encode(pooled_A + 3 ether + 0.45 ether) // original + refund + reward
+        );
+        vm.prank(bot);
+        stakeManager.compoundRewards();
+        (dailySlisBnb_2, remainingSlisBnb_2, lastBurnTime_2) = stakeManager
+            .refund();
+        assertEq(dailySlisBnb_2, dailySlisBnb);
+        assertEq(remainingSlisBnb_2, remainingSlisBnb - dailySlisBnb);
+        assertEq(lastBurnTime_2, block.timestamp);
+
+        // Second Refund: 2nd burn
+        skip(1 days);
+        vm.mockCall(
+            address(credit_A),
+            abi.encodeWithSignature("getPooledBNB(address)"),
+            abi.encode(pooled_A + 3 ether + 0.75 ether) // original + refund + reward
+        );
+        vm.prank(bot);
+        stakeManager.compoundRewards();
+        (dailySlisBnb_3, remainingSlisBnb_3, lastBurnTime_3) = stakeManager
+            .refund();
+        assertEq(dailySlisBnb_3, dailySlisBnb_2);
+        assertEq(remainingSlisBnb_3, remainingSlisBnb_2 - dailySlisBnb_3);
+        assertEq(lastBurnTime_3, block.timestamp);
+
+        // Second Refund: 3rd burn
+        skip(1 days);
+        vm.mockCall(
+            address(credit_A),
+            abi.encodeWithSignature("getPooledBNB(address)"),
+            abi.encode(pooled_A + 3 ether + 0.95 ether) // original + refund + reward
+        );
+        vm.prank(bot);
+        stakeManager.compoundRewards();
+        (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager
+            .refund();
+        assertEq(dailySlisBnb, dailySlisBnb_3);
+        assertApproxEqAbs(remainingSlisBnb, 0, 1); // 0 or 1 wei remaining
+        assertEq(lastBurnTime, block.timestamp);
     }
 }
