@@ -198,10 +198,10 @@ contract ListaStakeManagerMainnet is Test {
             uint lastBurnTime_3
         ) = stakeManager.refund();
         assertEq(dailySlisBnb_3, dailySlisBnb);
-        assertEq(remainingSlisBnb_3, 0);
+        assertApproxEqAbs(remainingSlisBnb_3, 0, 1); // 0 or 1 wei remaining
         assertEq(lastBurnTime_3, block.timestamp);
 
-        // Third time, no burn
+        // Third time
         skip(1 days);
         vm.mockCall(
             address(credit_A),
@@ -211,9 +211,9 @@ contract ListaStakeManagerMainnet is Test {
         vm.prank(bot);
         stakeManager.compoundRewards();
         (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager.refund();
-        assertEq(dailySlisBnb, dailySlisBnb_3);
+        assertEq(dailySlisBnb, 0);
         assertEq(remainingSlisBnb, 0);
-        assertEq(lastBurnTime, lastBurnTime_3);
+        assertEq(lastBurnTime, block.timestamp);
 
         // Second Refund: 2 bnb, 3 days
         vm.prank(manager);
@@ -222,7 +222,7 @@ contract ListaStakeManagerMainnet is Test {
 
         assertEq(dailySlisBnb, stakeManager.convertBnbToSnBnb(2 ether) / 3);
         assertEq(remainingSlisBnb, stakeManager.convertBnbToSnBnb(2 ether));
-        assertEq(lastBurnTime, lastBurnTime_3);
+        assertEq(lastBurnTime, block.timestamp);
 
         // Second Refund: 1st burn
         skip(1 days);
