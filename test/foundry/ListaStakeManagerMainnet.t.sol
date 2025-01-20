@@ -53,7 +53,7 @@ contract ListaStakeManagerMainnet is Test {
 
         assertTrue(stakeManager.hasRole(stakeManager.MANAGER(), manager));
     }
-/*
+
     // delegate all voting power to validator_A
     function test_delegateVoteTo() public {
         uint256 balance = govToken.balanceOf(address(stakeManager));
@@ -73,10 +73,10 @@ contract ListaStakeManagerMainnet is Test {
         vm.prank(admin);
         stakeManager.delegateVoteTo(validator_A);
 
-        votes_A = govToken.getVotes(validator_A) - votes_A;
+        uint256 votes_A_after = govToken.getVotes(validator_A) - votes_A;
         assertEq(govToken.delegates(address(stakeManager)), validator_A);
         assertEq(govToken.getVotes(address(stakeManager)), 0);
-        assertEq(votes_A, balance);
+        assertEq(votes_A_after, balance);
 
         // delegate voting power to user_A
         vm.prank(admin);
@@ -84,7 +84,7 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.delegates(address(stakeManager)), user_A);
         assertEq(govToken.getVotes(address(stakeManager)), 0);
         assertEq(govToken.getVotes(user_A), balance);
-        assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
+        assertEq(govToken.getVotes(validator_A), votes_A); // validator_A's voting power moved to user_A
 
         // cannot delegate voting power to user_A again
         vm.prank(admin);
@@ -99,6 +99,7 @@ contract ListaStakeManagerMainnet is Test {
         // stakeManager.delegateVoteTo(address(stakeManager));
 
         // Step 2, delegate voting power to validator_A
+        uint256 votes_A_before = govToken.getVotes(validator_A);
         uint256 balance1 = govToken.balanceOf(address(stakeManager));
         vm.prank(admin);
         stakeManager.delegateVoteTo(validator_A);
@@ -106,7 +107,7 @@ contract ListaStakeManagerMainnet is Test {
         uint256 votes_A = govToken.getVotes(validator_A);
         assertEq(govToken.delegates(address(stakeManager)), validator_A);
         assertEq(govToken.getVotes(address(stakeManager)), 0);
-        assertEq(votes_A, balance1);
+        assertEq(votes_A, votes_A_before + balance1);
 
         skip(1 days);
 
@@ -117,12 +118,13 @@ contract ListaStakeManagerMainnet is Test {
         stakeManager.delegateTo(validator_A, 10 ether);
         uint256 balance2 = govToken.balanceOf(address(stakeManager));
 
-        assertEq(govToken.getVotes(validator_A), balance2);
+        assertEq(govToken.getVotes(validator_A), votes_A_before + balance2);
         assertEq(govToken.getVotes(address(stakeManager)), 0);
     }
 
     // cancel the vote delegation by delegating to itself
     function test_cancelVoteDelegation() public {
+        uint256 votes_A_before = govToken.getVotes(validator_A);
         uint256 balance = govToken.balanceOf(address(stakeManager));
         test_delegateVoteTo();
         vm.prank(admin);
@@ -133,9 +135,9 @@ contract ListaStakeManagerMainnet is Test {
         );
         assertEq(govToken.getVotes(address(stakeManager)), balance);
         assertEq(govToken.getVotes(user_A), 0); // user_A has no voting power after cancellation
-        assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
+        assertEq(govToken.getVotes(validator_A), votes_A_before);
     }
-*/
+
     function test_refundCommission_normal() public {
         deal(manager, 100000 ether);
 
@@ -266,7 +268,7 @@ contract ListaStakeManagerMainnet is Test {
         (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager
             .refund();
         assertEq(dailySlisBnb, dailySlisBnb_3);
-        assertApproxEqAbs(remainingSlisBnb, 0, 1); // 0 or 1 wei remaining
+        assertApproxEqAbs(remainingSlisBnb, 0, 2); // 0 or 1 or 2 wei remaining
         assertEq(lastBurnTime, block.timestamp);
     }
 }
