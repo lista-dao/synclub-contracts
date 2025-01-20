@@ -1029,7 +1029,7 @@ contract ListaStakeManager is
 
     function _burnRefundSlisBnb() private {
         if (refund.remainingSlisBnb == 0) return;
-        if (refund.lastBurnTime != 0 && (block.timestamp / 1 days < (refund.lastBurnTime / 1 days + 1))) return; // burn once a day
+        if (block.timestamp / 1 days < (refund.lastBurnTime / 1 days + 1)) return; // burn once a day
 
         uint256 burnAmount = refund.dailySlisBnb;
         if (burnAmount > refund.remainingSlisBnb) {

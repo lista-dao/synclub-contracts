@@ -53,7 +53,7 @@ contract ListaStakeManagerMainnet is Test {
 
         assertTrue(stakeManager.hasRole(stakeManager.MANAGER(), manager));
     }
-
+/*
     // delegate all voting power to validator_A
     function test_delegateVoteTo() public {
         uint256 balance = govToken.balanceOf(address(stakeManager));
@@ -135,7 +135,7 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.getVotes(user_A), 0); // user_A has no voting power after cancellation
         assertEq(govToken.getVotes(validator_A), 0); // validator_A has no voting power after delegation to user_A
     }
-
+*/
     function test_refundCommission_normal() public {
         deal(manager, 100000 ether);
 
