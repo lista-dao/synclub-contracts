@@ -186,4 +186,5 @@ interface IStakeManager {
     event SyncCreditContract(address indexed _validator, address _credit, bool toRemove);
     event SetMinBnb(uint256 _minBnb);
     event DelegateVoteTo(address _delegateTo, uint256 _votesChange);
+    event RefundCommission(uint256 _bnbAmount, uint256 _dailySlisBnb, uint256 _days, uint256 _remainingSlisBnb);
 }

@@ -115,6 +115,18 @@ contract ListaStakeManager is
     // 0.1% as of Oct 2024
     uint256 public annualRate;
 
+    // ListaDao validator commission refund
+    Refund public refund;
+
+    // manager role to refund commission
+    bytes32 public constant MANAGER = keccak256("MANAGER");
+
+    struct Refund {
+        uint256 dailySlisBnb; // daily slisBnb to be burned
+        uint256 remainingSlisBnb; // remaining slisBnb amount to be burned
+        uint256 lastBurnTime; // last burn time
+    }
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -1011,7 +1023,46 @@ contract ListaStakeManager is
             ISLisBNB(slisBnb).mint(revenuePool, slisBNBAmount);
         }
 
+        _burnRefundSlisBnb();
         emit RewardsCompounded(fee);
+    }
+
+    function _burnRefundSlisBnb() private {
+        if (refund.remainingSlisBnb == 0) return;
+        if (block.timestamp / 1 days < (refund.lastBurnTime / 1 days + 1)) return; // burn once a day
+
+        uint256 burnAmount = refund.dailySlisBnb;
+        if (burnAmount > refund.remainingSlisBnb) {
+            burnAmount = refund.remainingSlisBnb;
+            refund.remainingSlisBnb = 0;
+            refund.dailySlisBnb = 0;
+        } else {
+            refund.remainingSlisBnb -= burnAmount;
+        }
+
+        refund.lastBurnTime = block.timestamp;
+        ISLisBNB(slisBnb).burn(address(this), burnAmount);
+    }
+
+    /**
+     * @dev Allows manager to refund Lista Dao validator's commission to this contract
+     * @param _days - Number of days to split the refund
+     */
+    function refundCommission(uint256 _days) external payable whenNotPaused onlyRole(MANAGER) {
+        require(msg.value > 0 && _days > 0, "Invalid Amount or Days");
+
+        uint256 refundSlisBnb = convertBnbToSnBnb(msg.value);
+        uint256 slisBnbAmount = refundSlisBnb + refund.remainingSlisBnb;
+        uint256 dailySlisBnb = slisBnbAmount / _days;
+        require(dailySlisBnb > 0, "Invalid Daily SlisBnb");
+
+        amountToDelegate += msg.value; // stake the refund amount
+        ISLisBNB(slisBnb).mint(address(this), refundSlisBnb); // mint slisBnb then burn daily proportion
+
+        refund.dailySlisBnb = dailySlisBnb;
+        refund.remainingSlisBnb = slisBnbAmount;
+
+        emit RefundCommission(msg.value, dailySlisBnb, _days, slisBnbAmount);
     }
 
     /**
