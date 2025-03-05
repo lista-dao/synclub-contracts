@@ -16,6 +16,8 @@ on: [push, pull_request]
 jobs:
   compare_gas_reports:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
