@@ -33,6 +33,7 @@ jobs:
           # make fuzzing semi-deterministic to avoid noisy gas cost estimation
           # due to non-deterministic fuzzing (but still use pseudo-random fuzzing seeds)
           FOUNDRY_FUZZ_SEED: 0x${{ github.event.pull_request.base.sha || github.sha }}
+          BSC_RPC: ${{ secrets.BSC_RPC }}
 
       - name: Compare gas reports
         uses: Rubilmax/foundry-gas-diff@v3

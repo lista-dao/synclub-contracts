@@ -37,7 +37,7 @@ contract ListaStakeManagerMainnet is Test {
     address user_A = address(0xAA);
 
     function setUp() public {
-        vm.createSelectFork("https://bsc-dataseed.binance.org");
+        vm.createSelectFork(vm.envString("BSC_RPC"), 45946093);
         slisBnb = SLisBNB(0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B);
         stakeManager = ListaStakeManager(payable(proxy));
 
