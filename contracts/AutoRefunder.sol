@@ -24,7 +24,7 @@ contract AutoRefunder is
     address public stakeManager;
 
     /// @dev Address of the multisig vault to receive the rest of BNB
-    address vault;
+    address public vault;
 
     /// @dev Percentage of the refund that will be sent to stakeManager;
     /// The rest will be sent to the vault. The default is 60% to stakeManager and 40% to vault
@@ -43,7 +43,8 @@ contract AutoRefunder is
         address indexed stakeManager,
         address indexed vault,
         uint256 refundAmount,
-        uint256 vaultAmount
+        uint256 vaultAmount,
+        uint256 refundDays
     );
     event EmergencyWithdrawal(address to, uint256 bnbAmount);
     event RefundRatioChanged(uint256 newRatio);
@@ -109,7 +110,7 @@ contract AutoRefunder is
             require(success, "Transfer failed");
         }
 
-        emit AutoRefund(stakeManager, vault, refundAmount, vaultAmount);
+        emit AutoRefund(stakeManager, vault, refundAmount, vaultAmount, refundDays);
     }
 
     /// @dev manager set the refund ratio

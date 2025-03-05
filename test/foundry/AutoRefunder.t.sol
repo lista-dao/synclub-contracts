@@ -45,6 +45,7 @@ contract AutoRefunderTest is Test {
         autoRefunder = AutoRefunder(payable(address(proxy_)));
 
         assertEq(autoRefunder.stakeManager(), address(stakeManager));
+        assertEq(autoRefunder.vault(), vault);
         assertEq(autoRefunder.refundRatio(), 6000);
         assertEq(autoRefunder.refundDays(), 30);
 
