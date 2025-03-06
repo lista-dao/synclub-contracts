@@ -95,6 +95,7 @@ contract AutoRefunder is
 
     /// @dev bot calls this function to refund the commission to stakeManager and send the rest to the vault
     function autoRefund() external onlyRole(BOT) whenNotPaused {
+        require(address(this).balance > 0, "No BNB to refund");
         uint256 refundAmount = (address(this).balance * refundRatio) /
             DENOMINATOR;
         uint256 vaultAmount = address(this).balance - refundAmount;

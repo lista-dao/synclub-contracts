@@ -98,6 +98,11 @@ contract AutoRefunderTest is Test {
     }
 
     function test_autoRefund() public {
+        vm.startPrank(bot);
+        vm.expectRevert("No BNB to refund");
+        autoRefunder.autoRefund();
+        vm.stopPrank();
+
         uint256 totalAmount = 100 ether;
 
         (bool success, ) = address(autoRefunder).call{value: totalAmount}("");
