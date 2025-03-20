@@ -1048,7 +1048,7 @@ contract ListaStakeManager is
      * @dev Allows manager to refund Lista Dao validator's commission to this contract
      * @param _days - Number of days to split the refund
      */
-    function refundCommission(uint256 _days) external payable whenNotPaused onlyRole(MANAGER) {
+    function refundCommission(uint256 _days) external payable override whenNotPaused onlyRole(MANAGER) {
         require(msg.value > 0 && _days > 0, "Invalid Amount or Days");
 
         uint256 refundSlisBnb = convertBnbToSnBnb(msg.value);

@@ -16,3 +16,5 @@ jobs:
 
     - name: Run tests
       run: forge test -vvv
+      env:
+        BSC_RPC: ${{ secrets.BSC_RPC }}
