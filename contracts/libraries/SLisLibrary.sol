@@ -18,23 +18,12 @@ library SLisLibrary {
         _fee = (_principal * _annualRate) / 365 / _decimals;
     }
 
-    function calculateFee(
-        uint256 _principal,
-        uint256 _profit,
-        uint256 _annualRate,
-        uint256 _synFee,
-        uint256 _decimals
-    ) public returns (uint256 _fee) {
-        uint256 _feeFromAPY = calculateFeeFromAPY(
-            _principal,
-            _annualRate,
-            _decimals
-        );
-        uint256 _feeFromProfit = calculateFeeFromDailyProfit(
-            _profit,
-            _synFee,
-            _decimals
-        );
+    function calculateFee(uint256 _principal, uint256 _profit, uint256 _annualRate, uint256 _synFee, uint256 _decimals)
+        public
+        returns (uint256 _fee)
+    {
+        uint256 _feeFromAPY = calculateFeeFromAPY(_principal, _annualRate, _decimals);
+        uint256 _feeFromProfit = calculateFeeFromDailyProfit(_profit, _synFee, _decimals);
 
         _fee = _feeFromAPY > _feeFromProfit ? _feeFromAPY : _feeFromProfit;
     }

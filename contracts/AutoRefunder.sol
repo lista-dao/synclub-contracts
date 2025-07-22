@@ -13,13 +13,7 @@ import {IStakeManager} from "./interfaces/IStakeManager.sol";
  * @author Lista
  * @notice This contract is used to refund the commission to ListaStakeManager and send the rest to the vault
  */
-
-contract AutoRefunder is
-    Initializable,
-    AccessControlUpgradeable,
-    PausableUpgradeable,
-    UUPSUpgradeable
-{
+contract AutoRefunder is Initializable, AccessControlUpgradeable, PausableUpgradeable, UUPSUpgradeable {
     /// @dev Address of the stakeManager contract to be refunded to
     address public stakeManager;
 
@@ -96,18 +90,15 @@ contract AutoRefunder is
     /// @dev bot calls this function to refund the commission to stakeManager and send the rest to the vault
     function autoRefund() external onlyRole(BOT) whenNotPaused {
         require(address(this).balance > 0, "No BNB to refund");
-        uint256 refundAmount = (address(this).balance * refundRatio) /
-            DENOMINATOR;
+        uint256 refundAmount = (address(this).balance * refundRatio) / DENOMINATOR;
         uint256 vaultAmount = address(this).balance - refundAmount;
 
         if (refundAmount > 0) {
-            IStakeManager(stakeManager).refundCommission{value: refundAmount}(
-                refundDays
-            );
+            IStakeManager(stakeManager).refundCommission{value: refundAmount}(refundDays);
         }
 
         if (vaultAmount > 0) {
-            (bool success, ) = vault.call{value: vaultAmount}("");
+            (bool success,) = vault.call{value: vaultAmount}("");
             require(success, "Transfer failed");
         }
 
@@ -115,13 +106,8 @@ contract AutoRefunder is
     }
 
     /// @dev manager set the refund ratio
-    function changeRefundRatio(
-        uint256 _refundRatio
-    ) external whenNotPaused onlyRole(MANAGER) {
-        require(
-            _refundRatio > 0 && _refundRatio < DENOMINATOR,
-            "Invalid refund ratio"
-        );
+    function changeRefundRatio(uint256 _refundRatio) external whenNotPaused onlyRole(MANAGER) {
+        require(_refundRatio > 0 && _refundRatio < DENOMINATOR, "Invalid refund ratio");
         require(_refundRatio != refundRatio, "Same refund ratio");
         refundRatio = _refundRatio;
 
@@ -129,13 +115,8 @@ contract AutoRefunder is
     }
 
     /// @dev manager can change the number of days to split the refund BNB
-    function changeRefundDays(
-        uint256 _refundDays
-    ) external whenNotPaused onlyRole(MANAGER) {
-        require(
-            _refundDays > 0 && _refundDays != refundDays,
-            "Invalid refund days"
-        );
+    function changeRefundDays(uint256 _refundDays) external whenNotPaused onlyRole(MANAGER) {
+        require(_refundDays > 0 && _refundDays != refundDays, "Invalid refund days");
         refundDays = _refundDays;
 
         emit RefundDaysChanged(_refundDays);
@@ -144,7 +125,7 @@ contract AutoRefunder is
     /// @dev manager can withdraw all BNB from this contract in case of emergency
     function emergencyWithdraw() external onlyRole(MANAGER) {
         uint256 balance = address(this).balance;
-        (bool success, ) = msg.sender.call{value: balance}("");
+        (bool success,) = msg.sender.call{value: balance}("");
         require(success, "Transfer failed");
 
         emit EmergencyWithdrawal(msg.sender, balance);
@@ -160,9 +141,7 @@ contract AutoRefunder is
         _unpause();
     }
 
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     receive() external payable {}
 }

@@ -18,12 +18,10 @@ contract ListaStakeManagerMainnet is Test {
     SLisBNB public slisBnb;
 
     address proxy = 0x1adB950d8bB3dA4bE104211D5AB038628e477fE6;
-    ERC20VotesUpgradeable govToken =
-        ERC20VotesUpgradeable(0x0000000000000000000000000000000000002005);
+    ERC20VotesUpgradeable govToken = ERC20VotesUpgradeable(0x0000000000000000000000000000000000002005);
 
     address timelock = 0x07D274a68393E8b8a2CCf19A2ce4Ba3518735253;
-    ProxyAdmin proxyAdmin =
-        ProxyAdmin(0x8Ce30a8d13D6d729708232aA415d7DA46a4FA07b);
+    ProxyAdmin proxyAdmin = ProxyAdmin(0x8Ce30a8d13D6d729708232aA415d7DA46a4FA07b);
 
     address bot = 0x9c975db5E112235b6c4a177C2A5c67ab4d758499;
     address admin = 0x5C0F11c927216E4D780E2a219b06632Fb027274E;
@@ -31,8 +29,7 @@ contract ListaStakeManagerMainnet is Test {
     address validator_A = 0x343dA7Ff0446247ca47AA41e2A25c5Bbb230ED0A;
     address validator_B = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
     address validator_C = 0x7766A5EE8294343bF6C8dcf3aA4B6D856606703A;
-    IStakeCredit credit_A =
-        IStakeCredit(0xeC06CB25d9add4bDd67B61432163aFF9028Aa921);
+    IStakeCredit credit_A = IStakeCredit(0xeC06CB25d9add4bDd67B61432163aFF9028Aa921);
 
     address user_A = address(0xAA);
 
@@ -129,10 +126,7 @@ contract ListaStakeManagerMainnet is Test {
         test_delegateVoteTo();
         vm.prank(admin);
         stakeManager.delegateVoteTo(address(stakeManager));
-        assertEq(
-            govToken.delegates(address(stakeManager)),
-            address(stakeManager)
-        );
+        assertEq(govToken.delegates(address(stakeManager)), address(stakeManager));
         assertEq(govToken.getVotes(address(stakeManager)), balance);
         assertEq(govToken.getVotes(user_A), 0); // user_A has no voting power after cancellation
         assertEq(govToken.getVotes(validator_A), votes_A_before);
@@ -150,24 +144,20 @@ contract ListaStakeManagerMainnet is Test {
         uint256 exRate_1 = stakeManager.convertSnBnbToBnb(1 ether);
 
         assertEq(exRate_1, exRate_0);
-        (
-            uint dailySlisBnb,
-            uint remainingSlisBnb,
-            uint lastBurnTime
-        ) = stakeManager.refund();
+        (uint256 dailySlisBnb, uint256 remainingSlisBnb, uint256 lastBurnTime) = stakeManager.refund();
 
         assertEq(dailySlisBnb, stakeManager.convertBnbToSnBnb(1 ether) / 2);
         assertEq(remainingSlisBnb, stakeManager.convertBnbToSnBnb(1 ether));
         assertEq(lastBurnTime, 0);
 
         skip(1 hours);
-        uint _amount = stakeManager.amountToDelegate();
+        uint256 _amount = stakeManager.amountToDelegate();
         vm.prank(bot);
         stakeManager.delegateTo(validator_A, _amount);
 
         // First burn
         skip(1 days);
-        uint pooled_A = credit_A.getPooledBNB(address(stakeManager));
+        uint256 pooled_A = credit_A.getPooledBNB(address(stakeManager));
         vm.mockCall(
             address(credit_A),
             abi.encodeWithSignature("getPooledBNB(address)"),
@@ -175,11 +165,7 @@ contract ListaStakeManagerMainnet is Test {
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
-        (
-            uint dailySlisBnb_2,
-            uint remainingSlisBnb_2,
-            uint lastBurnTime_2
-        ) = stakeManager.refund();
+        (uint256 dailySlisBnb_2, uint256 remainingSlisBnb_2, uint256 lastBurnTime_2) = stakeManager.refund();
         assertEq(dailySlisBnb_2, dailySlisBnb);
         assertEq(remainingSlisBnb_2, remainingSlisBnb - dailySlisBnb);
         assertEq(lastBurnTime_2, block.timestamp);
@@ -194,22 +180,14 @@ contract ListaStakeManagerMainnet is Test {
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
-        (
-            uint dailySlisBnb_3,
-            uint remainingSlisBnb_3,
-            uint lastBurnTime_3
-        ) = stakeManager.refund();
+        (uint256 dailySlisBnb_3, uint256 remainingSlisBnb_3, uint256 lastBurnTime_3) = stakeManager.refund();
         assertEq(dailySlisBnb_3, dailySlisBnb);
         assertApproxEqAbs(remainingSlisBnb_3, 0, 1); // 0 or 1 wei remaining
         assertEq(lastBurnTime_3, block.timestamp);
 
         // Third time
         skip(1 days);
-        vm.mockCall(
-            address(credit_A),
-            abi.encodeWithSignature("getPooledBNB(address)"),
-            abi.encode(pooled_A + 3 ether)
-        );
+        vm.mockCall(address(credit_A), abi.encodeWithSignature("getPooledBNB(address)"), abi.encode(pooled_A + 3 ether));
         vm.prank(bot);
         stakeManager.compoundRewards();
         (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager.refund();
@@ -235,8 +213,7 @@ contract ListaStakeManagerMainnet is Test {
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
-        (dailySlisBnb_2, remainingSlisBnb_2, lastBurnTime_2) = stakeManager
-            .refund();
+        (dailySlisBnb_2, remainingSlisBnb_2, lastBurnTime_2) = stakeManager.refund();
         assertEq(dailySlisBnb_2, dailySlisBnb);
         assertEq(remainingSlisBnb_2, remainingSlisBnb - dailySlisBnb);
         assertEq(lastBurnTime_2, block.timestamp);
@@ -250,8 +227,7 @@ contract ListaStakeManagerMainnet is Test {
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
-        (dailySlisBnb_3, remainingSlisBnb_3, lastBurnTime_3) = stakeManager
-            .refund();
+        (dailySlisBnb_3, remainingSlisBnb_3, lastBurnTime_3) = stakeManager.refund();
         assertEq(dailySlisBnb_3, dailySlisBnb_2);
         assertEq(remainingSlisBnb_3, remainingSlisBnb_2 - dailySlisBnb_3);
         assertEq(lastBurnTime_3, block.timestamp);
@@ -265,8 +241,7 @@ contract ListaStakeManagerMainnet is Test {
         );
         vm.prank(bot);
         stakeManager.compoundRewards();
-        (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager
-            .refund();
+        (dailySlisBnb, remainingSlisBnb, lastBurnTime) = stakeManager.refund();
         assertEq(dailySlisBnb, dailySlisBnb_3);
         assertApproxEqAbs(remainingSlisBnb, 0, 2); // 0 or 1 or 2 wei remaining
         assertEq(lastBurnTime, block.timestamp);

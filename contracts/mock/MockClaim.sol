@@ -15,6 +15,7 @@ contract ClaimMock {
     }
 }
 // Inject the mock into the Credit contract
+
 contract CreditMock {
     address public stakeManager;
     uint256 public amount = 100 ether;
@@ -28,6 +29,6 @@ contract CreditMock {
     }
 
     function _claim() public {
-        stakeManager.call{ value: amount }("");
+        stakeManager.call{value: amount}("");
     }
 }

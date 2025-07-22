@@ -26,10 +26,7 @@ interface IStakeHub {
      * @param operatorAddress the operator address of the validator to be delegated to
      * @param delegateVotePower whether to delegate vote power to the validator
      */
-    function delegate(
-        address operatorAddress,
-        bool delegateVotePower
-    ) external payable;
+    function delegate(address operatorAddress, bool delegateVotePower) external payable;
 
     /**
      * @dev Undelegate BNB from a validator, fund is only claimable few days later
@@ -44,12 +41,7 @@ interface IStakeHub {
      * @param shares the shares to be redelegated
      * @param delegateVotePower whether to delegate vote power to the dstValidator
      */
-    function redelegate(
-        address srcValidator,
-        address dstValidator,
-        uint256 shares,
-        bool delegateVotePower
-    ) external;
+    function redelegate(address srcValidator, address dstValidator, uint256 shares, bool delegateVotePower) external;
 
     /**
      * @dev Claim the undelegated BNB from the pool after unbondPeriod
@@ -63,8 +55,5 @@ interface IStakeHub {
      * @param operatorAddresses the operator addresses of the validator
      * @param requestNumbers numbers of the undelegation requests. 0 means claim all
      */
-    function claimBatch(
-        address[] calldata operatorAddresses,
-        uint256[] calldata requestNumbers
-    ) external;
+    function claimBatch(address[] calldata operatorAddresses, uint256[] calldata requestNumbers) external;
 }

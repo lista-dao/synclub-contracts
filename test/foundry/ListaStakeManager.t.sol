@@ -37,9 +37,7 @@ contract ListaStakeManagerTest is Test {
     function setUp() public {
         SLisBNB slisBnbImpl = new SLisBNB();
         TransparentUpgradeableProxy slisBnbProxy = new TransparentUpgradeableProxy(
-            address(slisBnbImpl),
-            proxyAdminOwner,
-            abi.encodeWithSignature("initialize(address)", admin)
+            address(slisBnbImpl), proxyAdminOwner, abi.encodeWithSignature("initialize(address)", admin)
         );
         slisBnb = SLisBNB(address(slisBnbProxy));
 
@@ -49,7 +47,13 @@ contract ListaStakeManagerTest is Test {
             proxyAdminOwner,
             abi.encodeWithSignature(
                 "initialize(address,address,address,address,uint256,address,address)",
-                address(slisBnb), admin, manager, bot, synFee, revenuePool, validator
+                address(slisBnb),
+                admin,
+                manager,
+                bot,
+                synFee,
+                revenuePool,
+                validator
             )
         );
         stakeManager = IStakeManager(address(stakeManagerProxy));
@@ -80,9 +84,7 @@ contract ListaStakeManagerTest is Test {
 
     function test_whitelistValidator() public {
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A),
-            abi.encode(credit_A)
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
         );
 
         vm.prank(admin);
@@ -93,15 +95,9 @@ contract ListaStakeManagerTest is Test {
     function test_delegateTo_validator_A() public {
         deal(user_A, 100 ether);
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A),
-            abi.encode(credit_A)
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
         );
-        vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("minDelegationBNBChange()"),
-            abi.encode(0)
-        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("minDelegationBNBChange()"), abi.encode(0));
 
         vm.prank(admin);
         stakeManager.whitelistValidator(validator_A);
@@ -110,7 +106,6 @@ contract ListaStakeManagerTest is Test {
         vm.prank(user_A);
         stakeManager.deposit{value: 1 ether}();
         vm.stopPrank();
-
 
         vm.prank(bot);
         stakeManager.delegateTo(validator_A, 1 ether);
@@ -145,24 +140,14 @@ contract ListaStakeManagerTest is Test {
     function test_undelegateFrom_validator_A() public {
         deal(user_A, 100 ether);
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A),
-            abi.encode(credit_A)
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("minDelegationBNBChange()"), abi.encode(0));
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 1e18), abi.encode(1000000000000000000)
         );
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("minDelegationBNBChange()"),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            credit_A,
-            abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 1e18),
-            abi.encode(1000000000000000000)
-        );
-        vm.mockCall(
-            credit_A,
-            abi.encodeWithSignature("getPooledBNBByShares(uint256)", 1e18),
-            abi.encode(1000000000000000000)
+            credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 1e18), abi.encode(1000000000000000000)
         );
 
         vm.prank(admin);
@@ -172,7 +157,6 @@ contract ListaStakeManagerTest is Test {
         vm.prank(user_A);
         stakeManager.deposit{value: 10 ether}();
         vm.stopPrank();
-
 
         vm.prank(bot);
         stakeManager.delegateTo(validator_A, 10 ether);
@@ -190,9 +174,7 @@ contract ListaStakeManagerTest is Test {
         vm.stopPrank();
 
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("undelegate(address,uint256)", validator_A, 1 ether),
-            abi.encode(0)
+            STAKE_HUB, abi.encodeWithSignature("undelegate(address,uint256)", validator_A, 1 ether), abi.encode(0)
         );
         vm.prank(bot);
         stakeManager.undelegateFrom(validator_A, 1 ether);
@@ -205,24 +187,14 @@ contract ListaStakeManagerTest is Test {
     function test_claimWithdraw() public {
         deal(user_A, 100 ether);
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A),
-            abi.encode(credit_A)
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("minDelegationBNBChange()"), abi.encode(0));
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 3e18), abi.encode(3000000000000000000)
         );
         vm.mockCall(
-            STAKE_HUB,
-            abi.encodeWithSignature("minDelegationBNBChange()"),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            credit_A,
-            abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 3e18),
-            abi.encode(3000000000000000000)
-        );
-        vm.mockCall(
-            credit_A,
-            abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3e18),
-            abi.encode(3000000000000000000)
+            credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3e18), abi.encode(3000000000000000000)
         );
 
         vm.prank(admin);
@@ -282,7 +254,9 @@ contract ListaStakeManagerTest is Test {
         // Bot claims the rest 1 BNB for user_A
         balanceBefore = address(user_A).balance;
         vm.prank(user_A);
-        vm.expectRevert("AccessControl: account 0x000000000000000000000000000000000000002a is missing role 0x902cbe3a02736af9827fb6a90bada39e955c0941e08f0c63b3a662a7b17a4e2b");
+        vm.expectRevert(
+            "AccessControl: account 0x000000000000000000000000000000000000002a is missing role 0x902cbe3a02736af9827fb6a90bada39e955c0941e08f0c63b3a662a7b17a4e2b"
+        );
         stakeManager.claimWithdrawFor(user_A, 0);
         vm.prank(bot);
         stakeManager.claimWithdrawFor(user_A, 0);

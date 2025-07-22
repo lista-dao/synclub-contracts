@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 interface IStakeManager {
-
     struct BotUndelegateRequest {
         uint256 startTime;
         uint256 endTime;
@@ -28,10 +27,7 @@ interface IStakeManager {
 
     function deposit() external payable;
 
-    function delegate()
-        external
-        payable
-        returns (uint256 _amount);
+    function delegate() external payable returns (uint256 _amount);
 
     function redelegate(address srcValidator, address dstValidator, uint256 amount)
         external
@@ -42,15 +38,9 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
-    function undelegate()
-        external
-        payable
-        returns (uint256 _uuid, uint256 _amount);
+    function undelegate() external payable returns (uint256 _uuid, uint256 _amount);
 
-    function undelegateAll()
-        external
-        payable
-        returns (uint256 _uuid, uint256 _amount);
+    function undelegateAll() external payable returns (uint256 _uuid, uint256 _amount);
 
     function claimUndelegated() external returns (uint256, uint256);
 
@@ -84,54 +74,31 @@ interface IStakeManager {
 
     function getTotalPooledBnb() external view returns (uint256);
 
-    function getContracts()
-        external
-        view
-        returns (
-            address _manager,
-            address _snBnb,
-            address _bcValidator
-        );
+    function getContracts() external view returns (address _manager, address _snBnb, address _bcValidator);
 
-    function getBotUndelegateRequest(uint256 _uuid)
-        external
-        view
-        returns (BotUndelegateRequest memory);
+    function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
-    function getUserWithdrawalRequests(address _address)
-        external
-        view
-        returns (WithdrawalRequest[] memory);
+    function getUserWithdrawalRequests(address _address) external view returns (WithdrawalRequest[] memory);
 
     function getUserRequestStatus(address _user, uint256 _idx)
         external
         view
         returns (bool _isClaimable, uint256 _amount);
 
-    function getSnBnbWithdrawLimit()
-        external
-        view
-        returns (uint256 _bnbXWithdrawLimit);
+    function getSnBnbWithdrawLimit() external view returns (uint256 _bnbXWithdrawLimit);
 
     function getTokenHubRelayFee() external view returns (uint256);
 
     function convertBnbToSnBnb(uint256 _amount) external view returns (uint256);
 
-    function convertSnBnbToBnb(uint256 _amountInBnbX)
-        external
-        view
-        returns (uint256);
+    function convertSnBnbToBnb(uint256 _amountInBnbX) external view returns (uint256);
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
     event DelegateTo(address indexed _validator, uint256 _amount, bool _delegateVotePower);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
-    event ClaimWithdrawal(
-        address indexed _account,
-        uint256 _idx,
-        uint256 _amount
-    );
+    event ClaimWithdrawal(address indexed _account, uint256 _idx, uint256 _amount);
     event Undelegate(uint256 _uuid, uint256 _amount);
     event UndelegateAll(uint256 _allAmount, uint256 _amount);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
