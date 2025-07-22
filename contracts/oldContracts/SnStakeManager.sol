@@ -16,12 +16,7 @@ import {IStaking} from "./interfaces/INativeStaking.sol";
  * @title Stake Manager Contract
  * @dev Handles Staking of BNB on BSC
  */
-contract SnStakeManager is
-    IStakeManager,
-    Initializable,
-    PausableUpgradeable,
-    AccessControlUpgradeable
-{
+contract SnStakeManager is IStakeManager, Initializable, PausableUpgradeable, AccessControlUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     uint256 public totalSnBnbToBurn;
@@ -38,8 +33,7 @@ contract SnStakeManager is
     address private snBnb;
     address private bcValidator;
 
-    mapping(uint256 => BotUndelegateRequest)
-        private uuidToBotUndelegateRequestMap;
+    mapping(uint256 => BotUndelegateRequest) private uuidToBotUndelegateRequestMap;
     mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
 
     uint256 public constant TEN_DECIMALS = 1e10;
@@ -81,12 +75,10 @@ contract SnStakeManager is
         __Pausable_init();
 
         require(
-            ((_snBnb != address(0)) &&
-                (_admin != address(0)) &&
-                (_manager != address(0)) &&
-                (_validator != address(0)) &&
-                (_revenuePool != address(0)) &&
-                (_bot != address(0))),
+            (
+                (_snBnb != address(0)) && (_admin != address(0)) && (_manager != address(0))
+                    && (_validator != address(0)) && (_revenuePool != address(0)) && (_bot != address(0))
+            ),
             "zero address provided"
         );
         require(_synFee <= TEN_DECIMALS, "_synFee must not exceed (100%)");
@@ -128,14 +120,7 @@ contract SnStakeManager is
      * @return _amount - Amount of funds transferred for staking
      * @notice The amount should be greater than minimum delegation on native staking contract
      */
-    function delegate()
-        external
-        payable
-        override
-        whenNotPaused
-        onlyRole(BOT)
-        returns (uint256 _amount)
-    {
+    function delegate() external payable override whenNotPaused onlyRole(BOT) returns (uint256 _amount) {
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -157,14 +142,7 @@ contract SnStakeManager is
      * @return _amount - Amount of funds transferred for staking
      * @notice The amount should be greater than minimum delegation on native staking contract
      */
-    function delegateWithReserve()
-        external
-        payable
-        override
-        whenNotPaused
-        onlyRole(BOT)
-        returns (uint256 _amount)
-    {
+    function delegateWithReserve() external payable override whenNotPaused onlyRole(BOT) returns (uint256 _amount) {
         uint256 relayFee = IStaking(NATIVE_STAKING).getRelayerFee();
         uint256 relayFeeReceived = msg.value;
         _amount = amountToDelegate - (amountToDelegate % TEN_DECIMALS);
@@ -177,7 +155,9 @@ contract SnStakeManager is
         totalDelegated += _amount;
 
         // delegate through native staking contract
-        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(bcValidator, _amount + reserveAmount);
+        IStaking(NATIVE_STAKING).delegate{value: _amount + msg.value + reserveAmount}(
+            bcValidator, _amount + reserveAmount
+        );
 
         emit Delegate(_amount);
         emit DelegateReserve(reserveAmount);
@@ -208,12 +188,8 @@ contract SnStakeManager is
     /**
      * @dev Allows bot to compound rewards
      */
-    function compoundRewards()
-        external
-        override
-        whenNotPaused
-        onlyRole(BOT)
-    {
+
+    function compoundRewards() external override whenNotPaused onlyRole(BOT) {
         require(totalDelegated > 0, "No funds delegated");
 
         uint256 amount = IStaking(NATIVE_STAKING).claimReward();
@@ -235,33 +211,18 @@ contract SnStakeManager is
      * @param _amountInSnBnb - Amount of SnBnb to swap for withdraw
      * @notice User must have approved this contract to spend SnBnb
      */
-    function requestWithdraw(uint256 _amountInSnBnb)
-        external
-        override
-        whenNotPaused
-    {
+    function requestWithdraw(uint256 _amountInSnBnb) external override whenNotPaused {
         require(_amountInSnBnb > 0, "Invalid Amount");
 
         totalSnBnbToBurn += _amountInSnBnb;
         uint256 totalBnbToWithdraw = convertSnBnbToBnb(totalSnBnbToBurn);
-        require(
-            totalBnbToWithdraw <= totalDelegated + amountToDelegate,
-            "Not enough BNB to withdraw"
-        );
+        require(totalBnbToWithdraw <= totalDelegated + amountToDelegate, "Not enough BNB to withdraw");
 
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest({
-                uuid: nextUndelegateUUID,
-                amountInSnBnb: _amountInSnBnb,
-                startTime: block.timestamp
-            })
+            WithdrawalRequest({uuid: nextUndelegateUUID, amountInSnBnb: _amountInSnBnb, startTime: block.timestamp})
         );
 
-        IERC20Upgradeable(snBnb).safeTransferFrom(
-            msg.sender,
-            address(this),
-            _amountInSnBnb
-        );
+        IERC20Upgradeable(snBnb).safeTransferFrom(msg.sender, address(this), _amountInSnBnb);
         emit RequestWithdraw(msg.sender, _amountInSnBnb);
     }
 
@@ -275,16 +236,14 @@ contract SnStakeManager is
         uint256 uuid = withdrawRequest.uuid;
         uint256 amountInSnBnb = withdrawRequest.amountInSnBnb;
 
-        BotUndelegateRequest
-            storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+        BotUndelegateRequest storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
         require(botUndelegateRequest.endTime != 0, "Not able to claim yet");
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
 
         uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
         uint256 totalSnBnbToBurn_ = botUndelegateRequest.amountInSnBnb;
-        uint256 amount = (totalBnbToWithdraw_ * amountInSnBnb) /
-            totalSnBnbToBurn_;
+        uint256 amount = (totalBnbToWithdraw_ * amountInSnBnb) / totalSnBnbToBurn_;
 
         AddressUpgradeable.sendValue(payable(user), amount);
 
@@ -314,10 +273,7 @@ contract SnStakeManager is
         _amount = convertSnBnbToBnb(totalSnBnbToBurn_);
         _amount -= _amount % TEN_DECIMALS;
 
-        require(
-            _amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(),
-            "Insufficient Withdraw Amount"
-        );
+        require(_amount + reserveAmount >= IStaking(NATIVE_STAKING).getMinDelegation(), "Insufficient Withdraw Amount");
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: block.timestamp,
@@ -347,8 +303,7 @@ contract SnStakeManager is
         uint256 undelegatedAmount = IStaking(NATIVE_STAKING).claimUndelegated();
         require(undelegatedAmount > 0, "Nothing to undelegate");
         for (uint256 i = confirmedUndelegatedUUID; i <= nextUndelegateUUID - 1; i++) {
-            BotUndelegateRequest
-                storage botUndelegateRequest = uuidToBotUndelegateRequestMap[i];
+            BotUndelegateRequest storage botUndelegateRequest = uuidToBotUndelegateRequestMap[i];
             botUndelegateRequest.endTime = block.timestamp;
             confirmedUndelegatedUUID++;
         }
@@ -369,7 +324,7 @@ contract SnStakeManager is
         if (withReserve) {
             require(failedAmount >= reserveAmount, "Wrong reserve amount for delegation");
             amountToDelegate += failedAmount - reserveAmount;
-            totalDelegated -= failedAmount -reserveAmount;
+            totalDelegated -= failedAmount - reserveAmount;
         } else {
             amountToDelegate += failedAmount;
             totalDelegated -= failedAmount;
@@ -382,14 +337,14 @@ contract SnStakeManager is
     /**
      * @dev Deposit reserved funds to the contract
      */
-    function depositReserve() external payable override whenNotPaused onlyRedirectAddress{
+    function depositReserve() external payable override whenNotPaused onlyRedirectAddress {
         uint256 amount = msg.value;
         require(amount > 0, "Invalid Amount");
 
         totalReserveAmount += amount;
     }
 
-    function withdrawReserve(uint256 amount) external override whenNotPaused onlyRedirectAddress{
+    function withdrawReserve(uint256 amount) external override whenNotPaused onlyRedirectAddress {
         require(amount <= totalReserveAmount, "Insufficient Balance");
         totalReserveAmount -= amount;
         AddressUpgradeable.sendValue(payable(msg.sender), amount);
@@ -410,10 +365,7 @@ contract SnStakeManager is
     }
 
     function acceptNewManager() external override {
-        require(
-            msg.sender == proposedManager,
-            "Accessible only by Proposed Manager"
-        );
+        require(msg.sender == proposedManager, "Accessible only by Proposed Manager");
 
         manager = proposedManager;
         proposedManager = address(0);
@@ -425,22 +377,16 @@ contract SnStakeManager is
         require(_address != address(0), "zero address provided");
 
         grantRole(BOT, _address);
-
     }
 
     function revokeBotRole(address _address) external override {
         require(_address != address(0), "zero address provided");
 
         revokeRole(BOT, _address);
-
     }
 
     /// @param _address - Beck32 decoding of Address of Validator Wallet on Beacon Chain with `0x` prefix
-    function setBCValidator(address _address)
-        external
-        override
-        onlyManager
-    {
+    function setBCValidator(address _address) external override onlyManager {
         require(bcValidator != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
@@ -449,11 +395,7 @@ contract SnStakeManager is
         emit SetBCValidator(_address);
     }
 
-    function setSynFee(uint256 _synFee)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setSynFee(uint256 _synFee) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_synFee <= TEN_DECIMALS, "_synFee must not exceed 10000 (100%)");
 
         synFee = _synFee;
@@ -461,11 +403,7 @@ contract SnStakeManager is
         emit SetSynFee(_synFee);
     }
 
-    function setRedirectAddress(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setRedirectAddress(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(redirectAddress != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
@@ -474,11 +412,7 @@ contract SnStakeManager is
         emit SetRedirectAddress(_address);
     }
 
-    function setRevenuePool(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setRevenuePool(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(revenuePool != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
@@ -491,28 +425,13 @@ contract SnStakeManager is
         return (amountToDelegate + totalDelegated);
     }
 
-    function getContracts()
-        external
-        view
-        override
-        returns (
-            address _manager,
-            address _snBnb,
-            address _bcValidator
-        )
-    {
+    function getContracts() external view override returns (address _manager, address _snBnb, address _bcValidator) {
         _manager = manager;
         _snBnb = snBnb;
         _bcValidator = bcValidator;
     }
 
-
-    function getBotUndelegateRequest(uint256 _uuid)
-        external
-        view
-        override
-        returns (BotUndelegateRequest memory)
-    {
+    function getBotUndelegateRequest(uint256 _uuid) external view override returns (BotUndelegateRequest memory) {
         return uuidToBotUndelegateRequestMap[_uuid];
     }
 
@@ -521,12 +440,7 @@ contract SnStakeManager is
      * @param _address - Address of an user
      * @return userWithdrawalRequests array of user withdrawal requests
      */
-    function getUserWithdrawalRequests(address _address)
-        external
-        view
-        override
-        returns (WithdrawalRequest[] memory)
-    {
+    function getUserWithdrawalRequests(address _address) external view override returns (WithdrawalRequest[] memory) {
         return userWithdrawalRequests[_address];
     }
 
@@ -544,9 +458,7 @@ contract SnStakeManager is
         override
         returns (bool _isClaimable, uint256 _amount)
     {
-        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[
-            _user
-        ];
+        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[_user];
 
         require(_idx < userRequests.length, "Invalid index");
 
@@ -554,8 +466,7 @@ contract SnStakeManager is
         uint256 uuid = withdrawRequest.uuid;
         uint256 amountInSnBnb = withdrawRequest.amountInSnBnb;
 
-        BotUndelegateRequest
-            storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+        BotUndelegateRequest storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
 
         // bot has triggered startUndelegation
         if (botUndelegateRequest.amount > 0) {
@@ -570,15 +481,8 @@ contract SnStakeManager is
         _isClaimable = (botUndelegateRequest.endTime != 0);
     }
 
-    function getSnBnbWithdrawLimit()
-        external
-        view
-        override
-        returns (uint256 _snBnbWithdrawLimit)
-    {
-        _snBnbWithdrawLimit =
-            convertBnbToSnBnb(totalDelegated) -
-            totalSnBnbToBurn;
+    function getSnBnbWithdrawLimit() external view override returns (uint256 _snBnbWithdrawLimit) {
+        _snBnbWithdrawLimit = convertBnbToSnBnb(totalDelegated) - totalSnBnbToBurn;
     }
 
     /**
@@ -591,12 +495,7 @@ contract SnStakeManager is
     /**
      * @dev Calculates amount of SnBnb for `_amount` Bnb
      */
-    function convertBnbToSnBnb(uint256 _amount)
-        public
-        view
-        override
-        returns (uint256)
-    {
+    function convertBnbToSnBnb(uint256 _amount) public view override returns (uint256) {
         uint256 totalShares = ISnBnb(snBnb).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
@@ -611,12 +510,7 @@ contract SnStakeManager is
     /**
      * @dev Calculates amount of Bnb for `_amountInSnBnb` SnBnb
      */
-    function convertSnBnbToBnb(uint256 _amountInSnBnb)
-        public
-        view
-        override
-        returns (uint256)
-    {
+    function convertSnBnbToBnb(uint256 _amountInSnBnb) public view override returns (uint256) {
         uint256 totalShares = ISnBnb(snBnb).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 

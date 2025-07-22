@@ -9,29 +9,15 @@ interface IStakeCredit {
         uint256 unlockTime;
     }
 
-    function getPooledBNBByShares(
-        uint256 shares
-    ) external view returns (uint256);
-    function getSharesByPooledBNB(
-        uint256 bnbAmount
-    ) external view returns (uint256);
-    function unbond(
-        address delegator,
-        uint256 shares
-    ) external returns (uint256);
+    function getPooledBNBByShares(uint256 shares) external view returns (uint256);
+    function getSharesByPooledBNB(uint256 bnbAmount) external view returns (uint256);
+    function unbond(address delegator, uint256 shares) external returns (uint256);
     function distributeReward(uint64 commissionRate) external payable;
     function rewardRecord(uint256 dayIndex) external view returns (uint256);
-    function totalPooledBNBRecord(
-        uint256 dayIndex
-    ) external view returns (uint256);
+    function totalPooledBNBRecord(uint256 dayIndex) external view returns (uint256);
     function balanceOf(address delegator) external view returns (uint256);
-    function unbondRequest(
-        address delegator,
-        uint256 _index
-    ) external view returns (UnbondRequest memory);
-    function claimableUnbondRequest(
-        address delegator
-    ) external view returns (uint256);
+    function unbondRequest(address delegator, uint256 _index) external view returns (UnbondRequest memory);
+    function claimableUnbondRequest(address delegator) external view returns (uint256);
     function getPooledBNB(address account) external view returns (uint256);
 
     function lockedBNBs(address delegator, uint256 number) external view returns (uint256);

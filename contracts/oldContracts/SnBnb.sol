@@ -23,27 +23,15 @@ contract SnBnb is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
-    function mint(address _account, uint256 _amount)
-        external
-        override
-        onlyStakeManager
-    {
+    function mint(address _account, uint256 _amount) external override onlyStakeManager {
         _mint(_account, _amount);
     }
 
-    function burn(address _account, uint256 _amount)
-        external
-        override
-        onlyStakeManager
-    {
+    function burn(address _account, uint256 _amount) external override onlyStakeManager {
         _burn(_account, _amount);
     }
 
-    function setStakeManager(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setStakeManager(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(stakeManager != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
@@ -53,10 +41,7 @@ contract SnBnb is ISnBnb, ERC20Upgradeable, AccessControlUpgradeable {
     }
 
     modifier onlyStakeManager() {
-        require(
-            msg.sender == stakeManager,
-            "Accessible only by StakeManager Contract"
-        );
+        require(msg.sender == stakeManager, "Accessible only by StakeManager Contract");
         _;
     }
 }

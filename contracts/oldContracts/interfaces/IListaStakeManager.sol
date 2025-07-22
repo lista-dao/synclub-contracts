@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 interface IStakeManager {
-
     struct BotUndelegateRequest {
         uint256 startTime;
         uint256 endTime;
@@ -36,11 +35,9 @@ interface IStakeManager {
 
     function deposit() external payable;
 
-    function delegateTo(address validator, uint256 amount)
-        external;
+    function delegateTo(address validator, uint256 amount) external;
 
-    function redelegate(address srcValidator, address dstValidator, uint256 shares)
-        external;
+    function redelegate(address srcValidator, address dstValidator, uint256 shares) external;
 
     function requestWithdraw(uint256 _amountInSnBnb) external;
 
@@ -48,13 +45,9 @@ interface IStakeManager {
 
     function claimWithdrawFor(address _user, uint256 _idx) external;
 
-    function undelegate()
-        external
-        returns (uint256 _uuid, uint256 _shares);
+    function undelegate() external returns (uint256 _uuid, uint256 _shares);
 
-    function undelegateFrom(address _operator, uint256 _amount)
-        external
-        returns (uint256 _actualBnbAmount);
+    function undelegateFrom(address _operator, uint256 _amount) external returns (uint256 _actualBnbAmount);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
 
@@ -92,34 +85,18 @@ interface IStakeManager {
 
     function removeValidator(address _address) external;
 
-    function getContracts()
-        external
-        view
-        returns (
-            address _manager,
-            address _snBnb,
-            address _bcValidator
-        );
+    function getContracts() external view returns (address _manager, address _snBnb, address _bcValidator);
 
-    function getBotUndelegateRequest(uint256 _uuid)
-        external
-        view
-        returns (BotUndelegateRequest memory);
+    function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
-    function getUserWithdrawalRequests(address _address)
-        external
-        view
-        returns (WithdrawalRequest[] memory);
+    function getUserWithdrawalRequests(address _address) external view returns (WithdrawalRequest[] memory);
 
     function getUserRequestStatus(address _user, uint256 _idx)
         external
         view
         returns (bool _isClaimable, uint256 _amount);
 
-    function getSlisBnbWithdrawLimit()
-        external
-        view
-        returns (uint256 _slisBnbWithdrawLimit);
+    function getSlisBnbWithdrawLimit() external view returns (uint256 _slisBnbWithdrawLimit);
 
     function getAmountToUndelegate() external view returns (uint256);
 
@@ -131,35 +108,22 @@ interface IStakeManager {
 
     function convertBnbToSnBnb(uint256 _amount) external view returns (uint256);
 
-    function convertSnBnbToBnb(uint256 _amountInSlisBnb)
-        external
-        view
-        returns (uint256);
+    function convertSnBnbToBnb(uint256 _amountInSlisBnb) external view returns (uint256);
 
-    function getClaimableAmount(address _validator)
-        external
-        view
-        returns (uint256 _amount);
+    function getClaimableAmount(address _validator) external view returns (uint256 _amount);
 
     function compoundRewards() external;
 
     function getTotalBnbInValidators() external returns (uint256);
 
-    function getRedelegateFee(uint256 bnbAmount)
-        external
-        view
-        returns (uint256);
+    function getRedelegateFee(uint256 bnbAmount) external view returns (uint256);
 
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
     event DelegateTo(address _validator, uint256 _amount, bool _delegateVotePower);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInSlisBnb);
-    event ClaimWithdrawal(
-        address indexed _account,
-        uint256 _idx,
-        uint256 _amount
-    );
+    event ClaimWithdrawal(address indexed _account, uint256 _idx, uint256 _amount);
     event ClaimAllWithdrawals(address indexed _account, uint256 _amount);
     event Undelegate(uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount, uint256 _shares);
     event UndelegateFrom(address indexed _operator, uint256 _bnbAmount, uint256 _shares);

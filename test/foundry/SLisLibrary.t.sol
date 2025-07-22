@@ -7,7 +7,6 @@ import "forge-std/console.sol";
 import "../../contracts/libraries/SLisLibrary.sol";
 
 contract SLisLibraryTest is Test {
-
     uint256 decimals = 1e10;
 
     function setUp() public {}
@@ -40,5 +39,4 @@ contract SLisLibraryTest is Test {
         // 0.1 BNB > 0.05 BNB
         assertEq(_fee, 0.1 ether);
     }
-
 }
