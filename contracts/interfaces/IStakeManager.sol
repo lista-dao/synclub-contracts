@@ -153,4 +153,6 @@ interface IStakeManager {
     event SetMinBnb(uint256 _minBnb);
     event DelegateVoteTo(address _delegateTo, uint256 _votesChange);
     event RefundCommission(uint256 _bnbAmount, uint256 _dailySlisBnb, uint256 _days, uint256 _remainingSlisBnb);
+    event InstantWithdraw(address indexed _user, uint256 _slisBnbAmount, uint256 _bnbAmountAfterFee, uint256 _fee);
+    event ClaimWithdrawFee(address indexed _recipient, uint256 _amount);
 }

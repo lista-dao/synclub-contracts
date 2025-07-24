@@ -18,7 +18,7 @@ import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 
 /**
  * @title Stake Manager Contract
- * @author Lista
+ * @author Lista DAO
  * @notice This contract handles the liquid staking of BNB on BSC through the native StakeHub contract
  */
 contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable, AccessControlUpgradeable {
@@ -31,6 +31,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     uint256 public totalDelegated;
 
     // Total available BNB for the next delegation
+    // Bnb Buffer pool for instant withdrawals
     uint256 public amountToDelegate;
 
     // Global UUID for each withdrawal request
@@ -107,11 +108,20 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     uint256 public minBnb;
 
     // principal * annualRate / 365; range {0-10_000_000_000}
-    // 0.1% as of Oct 2024
+    // zero as of Jul 2025
     uint256 public annualRate;
 
     // ListaDao validator commission refund
     Refund public refund;
+
+    // The max buffer pool size percentage of `totalPooledBnb`
+    uint256 public maxBufferSizePct;
+
+    // The total fee charged on instant withdrawal;
+    uint256 public instantWithdrawFee;
+
+    // The fee rate charged on instant withdrawal; range {0-10_000_000_000}
+    uint256 public instantWithdrawFeeRate;
 
     // manager role to refund commission
     bytes32 public constant MANAGER = keccak256("MANAGER");
@@ -193,7 +203,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Allows bot to delegate users' funds to given BSC validator
      * @param _validator - Operator address of the BSC validator to delegate to
      * @param _amount - Amount of BNB to delegate
-     * @notice The amount should be greater than minimum delegation
+     * @notice The amount should be greater than minimum delegation; TODO
+     * @notice bot should check `amountToDelegate` to delegate in case the buffer size is exceeded
      */
     function delegateTo(address _validator, uint256 _amount) external override whenNotPaused onlyRole(BOT) {
         require(amountToDelegate >= _amount, "Not enough BNB to delegate");
@@ -201,6 +212,15 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         require(validators[_validator] == true, "Inactive validator");
         require(_amount >= IStakeHub(STAKE_HUB).minDelegationBNBChange(), "Insufficient Delegation Amount");
 
+        uint256 maxBufferSize = (maxBufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
+        uint256 newBufferSize = amountToDelegate - _amount;
+
+        if (newBufferSize <= maxBufferSize) {
+            // max buffer size is not exceeded, do not delegate
+            return;
+        }
+
+        // delegate `_amount` BNB to the validator; `amountToDelegate` may be larger than 5%
         amountToDelegate -= _amount;
         totalDelegated += _amount;
 
@@ -267,6 +287,33 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         IERC20Upgradeable(slisBnb).safeTransferFrom(msg.sender, address(this), _amountInSlisBnb);
         emit RequestWithdraw(msg.sender, _amountInSlisBnb);
+    }
+
+    /**
+     * @dev Allows users to instantly withdraw BNB by burning SlisBnb and pay a fee
+     * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
+     * @return _bnbAmountAfterFee - Amount of BNB after fee deduction
+     * @notice User must have approved this contract to spend SlisBnb
+     */
+    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 _bnbAmountAfterFee) {
+        require(_amountInSlisBnb > 0, "Invalid slisBnb Amount");
+        uint256 bnbAmount = convertSnBnbToBnb(_amountInSlisBnb);
+        require(bnbAmount > minBnb, "Bnb amount is too small to withdraw");
+
+        uint256 withdrawFee = (bnbAmount * instantWithdrawFeeRate) / TEN_DECIMALS;
+        uint256 bnbAmountAfterFee = bnbAmount - withdrawFee;
+
+        instantWithdrawFee += withdrawFee;
+
+        IERC20Upgradeable(slisBnb).safeTransferFrom(msg.sender, address(this), _amountInSlisBnb);
+
+        if (bnbAmountAfterFee > 0) {
+            AddressUpgradeable.sendValue(payable(msg.sender), bnbAmountAfterFee);
+        }
+
+        emit InstantWithdraw(msg.sender, _amountInSlisBnb, bnbAmountAfterFee, withdrawFee);
+
+        return bnbAmountAfterFee;
     }
 
     /**
@@ -513,6 +560,23 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         require(amount <= totalReserveAmount, "Insufficient Balance");
         totalReserveAmount -= amount;
         AddressUpgradeable.sendValue(payable(msg.sender), amount);
+    }
+
+    /**
+     * @dev Allows the manager to claim the instant withdraw fee
+     * @param _amount - Amount of BNB to claim
+     */
+    function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(MANAGER) {
+        require(_instantWithdrawFee > 0, "Invalid Amount");
+        require(_instantWithdrawFee <= instantWithdrawFee, "Insufficient Fee Balance");
+        instantWithdrawFee -= _instantWithdrawFee;
+
+        AddressUpgradeable.sendValue(
+            payable(revenuePool), // send to revenue pool
+            _instantWithdrawFee
+        );
+
+        emit ClaimWithdrawFee(revenuePool, _instantWithdrawFee);
     }
 
     /**
