@@ -117,7 +117,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     // The max buffer pool size percentage of `totalPooledBnb`
     uint256 public maxBufferSizePct;
 
-    // The total fee charged on instant withdrawal;
+    // The total fee (slisBnb) charged on instant withdrawal;
     uint256 public instantWithdrawFee;
 
     // The fee rate charged on instant withdrawal; range {0-10_000_000_000}
@@ -292,28 +292,30 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     /**
      * @dev Allows users to instantly withdraw BNB by burning SlisBnb and pay a fee
      * @param _amountInSlisBnb - Amount of SlisBnb to swap for withdraw
-     * @return _bnbAmountAfterFee - Amount of BNB after fee deduction
+     * @return bnbAmount - Amount of BNB after fee deduction
      * @notice User must have approved this contract to spend SlisBnb
      */
-    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 _bnbAmountAfterFee) {
+    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 bnbAmount) {
         require(_amountInSlisBnb > 0, "Invalid slisBnb Amount");
-        uint256 bnbAmount = convertSnBnbToBnb(_amountInSlisBnb);
+        uint256 withdrawFee = (_amountInSlisBnb * instantWithdrawFeeRate) / TEN_DECIMALS;
+        uint256 burnAmount = _amountInSlisBnb - withdrawFee;
+
+        uint256 bnbAmount = convertSnBnbToBnb(_amountInSlisBnb - withdrawFee);
         require(bnbAmount > minBnb, "Bnb amount is too small to withdraw");
 
-        uint256 withdrawFee = (bnbAmount * instantWithdrawFeeRate) / TEN_DECIMALS;
-        uint256 bnbAmountAfterFee = bnbAmount - withdrawFee;
-
+        amountToDelegate -= bnbAmount;
         instantWithdrawFee += withdrawFee;
 
-        IERC20Upgradeable(slisBnb).safeTransferFrom(msg.sender, address(this), _amountInSlisBnb);
+        IERC20Upgradeable(slisBnb).transferFrom(msg.sender, address(this), _amountInSlisBnb);
+        ISLisBNB(slisBnb).burn(address(this), burnAmount);
 
-        if (bnbAmountAfterFee > 0) {
-            AddressUpgradeable.sendValue(payable(msg.sender), bnbAmountAfterFee);
+        if (bnbAmount > 0) {
+            AddressUpgradeable.sendValue(payable(msg.sender), bnbAmount);
         }
 
-        emit InstantWithdraw(msg.sender, _amountInSlisBnb, bnbAmountAfterFee, withdrawFee);
+        emit InstantWithdraw(msg.sender, _amountInSlisBnb, bnbAmount, withdrawFee);
 
-        return bnbAmountAfterFee;
+        return bnbAmount;
     }
 
     /**
@@ -557,17 +559,14 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
     /**
      * @dev Allows the manager to claim the instant withdraw fee
-     * @param _instantWithdrawFee - Amount of BNB to claim
+     * @param _instantWithdrawFee - Amount of slisBnb to claim
      */
     function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(MANAGER) {
         require(_instantWithdrawFee > 0, "Invalid Amount");
         require(_instantWithdrawFee <= instantWithdrawFee, "Insufficient Fee Balance");
         instantWithdrawFee -= _instantWithdrawFee;
 
-        AddressUpgradeable.sendValue(
-            payable(revenuePool), // send to revenue pool
-            _instantWithdrawFee
-        );
+        IERC20Upgradeable(slisBnb).safeTransfer(revenuePool, _instantWithdrawFee);
 
         emit ClaimWithdrawFee(revenuePool, _instantWithdrawFee);
     }
