@@ -370,13 +370,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Deprecated after fusion
-     */
-    function undelegate() external override whenNotPaused onlyRole(BOT) returns (uint256 _uuid, uint256 _amount) {
-        revert("not supported");
-    }
-
-    /**
      * @dev Bot uses this function to undelegate BNB from a validator
      * @param _operator - Operator address of validator to undelegate from
      * @param _amount - Amount of bnb to undelegate
@@ -564,7 +557,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
     /**
      * @dev Allows the manager to claim the instant withdraw fee
-     * @param _amount - Amount of BNB to claim
+     * @param _instantWithdrawFee - Amount of BNB to claim
      */
     function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(MANAGER) {
         require(_instantWithdrawFee > 0, "Invalid Amount");
@@ -739,17 +732,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
     function getTotalPooledBnb() public view override returns (uint256) {
         return (amountToDelegate + totalDelegated);
-    }
-
-    function getContracts()
-        external
-        view
-        override
-        returns (address _manager, address _slisBnb, address _bscValidator)
-    {
-        _manager = manager;
-        _slisBnb = slisBnb;
-        _bscValidator = bscValidator;
     }
 
     /**

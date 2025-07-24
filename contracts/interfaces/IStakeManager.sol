@@ -45,8 +45,6 @@ interface IStakeManager {
 
     function claimWithdrawFor(address _user, uint256 _idx) external;
 
-    function undelegate() external returns (uint256 _uuid, uint256 _shares);
-
     function undelegateFrom(address _operator, uint256 _amount) external returns (uint256 _actualBnbAmount);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
@@ -88,8 +86,6 @@ interface IStakeManager {
     function disableValidator(address _address) external;
 
     function removeValidator(address _address) external;
-
-    function getContracts() external view returns (address _manager, address _snBnb, address _bcValidator);
 
     function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
