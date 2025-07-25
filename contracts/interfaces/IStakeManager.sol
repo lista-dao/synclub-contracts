@@ -45,8 +45,6 @@ interface IStakeManager {
 
     function claimWithdrawFor(address _user, uint256 _idx) external;
 
-    function undelegate() external returns (uint256 _uuid, uint256 _shares);
-
     function undelegateFrom(address _operator, uint256 _amount) external returns (uint256 _actualBnbAmount);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
@@ -60,16 +58,6 @@ interface IStakeManager {
     function withdrawReserve(uint256) external;
 
     function setReserveAmount(uint256) external;
-
-    function proposeNewManager(address _address) external;
-
-    function acceptNewManager() external;
-
-    function setBotRole(address _address) external;
-
-    function revokeBotRole(address _address) external;
-
-    function setBSCValidator(address _address) external;
 
     function setSynFee(uint256 _synFee) external;
 
@@ -88,8 +76,6 @@ interface IStakeManager {
     function disableValidator(address _address) external;
 
     function removeValidator(address _address) external;
-
-    function getContracts() external view returns (address _manager, address _snBnb, address _bcValidator);
 
     function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
@@ -139,7 +125,6 @@ interface IStakeManager {
     event SetSynFee(uint256 _synFee);
     event SetAnnualRate(uint256 _annualRate);
     event SetRedirectAddress(address indexed _address);
-    event SetBSCValidator(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);
     event UndelegateReserve(uint256 _amount);
@@ -153,4 +138,6 @@ interface IStakeManager {
     event SetMinBnb(uint256 _minBnb);
     event DelegateVoteTo(address _delegateTo, uint256 _votesChange);
     event RefundCommission(uint256 _bnbAmount, uint256 _dailySlisBnb, uint256 _days, uint256 _remainingSlisBnb);
+    event InstantWithdraw(address indexed _user, uint256 _slisBnbAmount, uint256 _bnbAmountAfterFee, uint256 _fee);
+    event ClaimWithdrawFee(address indexed _recipient, uint256 _amount);
 }
