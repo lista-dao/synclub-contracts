@@ -59,16 +59,6 @@ interface IStakeManager {
 
     function setReserveAmount(uint256) external;
 
-    function proposeNewManager(address _address) external;
-
-    function acceptNewManager() external;
-
-    function setBotRole(address _address) external;
-
-    function revokeBotRole(address _address) external;
-
-    function setBSCValidator(address _address) external;
-
     function setSynFee(uint256 _synFee) external;
 
     function setAnnualRate(uint256 _annualRate) external;
@@ -135,7 +125,6 @@ interface IStakeManager {
     event SetSynFee(uint256 _synFee);
     event SetAnnualRate(uint256 _annualRate);
     event SetRedirectAddress(address indexed _address);
-    event SetBSCValidator(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);
     event UndelegateReserve(uint256 _amount);
