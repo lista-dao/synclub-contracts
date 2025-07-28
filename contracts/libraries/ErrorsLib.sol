@@ -11,6 +11,7 @@ library ErrorsLib {
     error NotEnoughBnb();
     error NotEnoughFee();
     error AmountTooSmall();
+    error BufferTooSmall();
     error AmountTooLarge();
     error InvalidSynFee();
     error UnclaimableRequest();

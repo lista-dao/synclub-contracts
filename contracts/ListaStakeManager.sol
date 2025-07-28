@@ -210,9 +210,9 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         uint256 maxBufferSize = (maxBufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
         uint256 newBufferSize = amountToDelegate - _amount;
 
-        if (newBufferSize <= maxBufferSize) {
+        if (maxBufferSize != 0 && newBufferSize <= maxBufferSize) {
             // max buffer size is not exceeded, do not delegate
-            return;
+            revert ErrorsLib.BufferTooSmall();
         }
 
         // delegate `_amount` BNB to the validator; `amountToDelegate` may be larger than 5%
