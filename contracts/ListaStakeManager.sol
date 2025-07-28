@@ -25,8 +25,8 @@ import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable, AccessControlUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    // Deprecated variable
-    uint256 public placeholder;
+    // The max buffer pool size percentage of `totalPooledBnb`
+    uint256 public maxBufferSizePct;
 
     // Total delegations including unbonding BNB
     uint256 public totalDelegated;
@@ -115,9 +115,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     // ListaDao validator commission refund
     Refund public refund;
 
-    // The max buffer pool size percentage of `totalPooledBnb`
-    uint256 public maxBufferSizePct;
-
     // The total fee (slisBnb) charged on instant withdrawal;
     uint256 public instantWithdrawFee;
 
@@ -201,8 +198,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Allows bot to delegate users' funds to given BSC validator
      * @param _validator - Operator address of the BSC validator to delegate to
      * @param _amount - Amount of BNB to delegate
-     * @notice The amount should be greater than minimum delegation; TODO
-     * @notice bot should check `amountToDelegate` to delegate in case the buffer size is exceeded
+     * @notice The amount should be greater than minimum delegation;
+     * @notice bot should monitor buffer size (Aka. `amountToDelegate`) to delegate in case the max buffer size is exceeded
      */
     function delegateTo(address _validator, uint256 _amount) external override whenNotPaused onlyRole(BOT) {
         if (_amount > amountToDelegate) revert ErrorsLib.NotEnoughBnb();
@@ -296,15 +293,16 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 bnbAmount) {
         if (_amountInSlisBnb == 0) revert ErrorsLib.InvalidSlisBnbAmount();
         uint256 withdrawFee = (_amountInSlisBnb * instantWithdrawFeeRate) / TEN_DECIMALS;
-        uint256 burnAmount = _amountInSlisBnb - withdrawFee;
-
-        uint256 bnbAmount = convertSnBnbToBnb(_amountInSlisBnb - withdrawFee);
-        if (bnbAmount <= minBnb) revert ErrorsLib.AmountTooSmall();
-
-        amountToDelegate -= bnbAmount;
         instantWithdrawFee += withdrawFee;
 
+        uint256 burnAmount = _amountInSlisBnb - withdrawFee;
+        uint256 bnbAmount = convertSnBnbToBnb(burnAmount);
+        if (bnbAmount < minBnb) revert ErrorsLib.AmountTooSmall();
+
         IERC20Upgradeable(slisBnb).transferFrom(msg.sender, address(this), _amountInSlisBnb);
+
+        // Won't change change rate since `bnbAmount` is calculated based on the current exchange rate
+        amountToDelegate -= bnbAmount;
         ISLisBNB(slisBnb).burn(address(this), burnAmount);
 
         if (bnbAmount > 0) {
