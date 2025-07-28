@@ -205,13 +205,12 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         if (_amount > amountToDelegate) revert ErrorsLib.NotEnoughBnb();
 
         if (!validators[_validator]) revert ErrorsLib.InactiveValidator();
-        if (_amount < IStakeHub(STAKE_HUB).minDelegationBNBChange()) revert ErrorsLib.InvalidAmount();
+        if (_amount < IStakeHub(STAKE_HUB).minDelegationBNBChange()) {
+            revert ErrorsLib.InvalidAmount();
+        }
 
-        uint256 maxBufferSize = (maxBufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
-        uint256 newBufferSize = amountToDelegate - _amount;
-
-        if (maxBufferSize != 0 && newBufferSize <= maxBufferSize) {
-            // max buffer size is not exceeded, do not delegate
+        (bool _skipDelegate,,) = skipDelegateOrNot(_amount);
+        if (_skipDelegate) {
             revert ErrorsLib.BufferTooSmall();
         }
 
@@ -557,9 +556,11 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Allows the manager to claim the instant withdraw fee
      * @param _instantWithdrawFee - Amount of slisBnb to claim
      */
-    function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(MANAGER) {
+    function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_instantWithdrawFee == 0) revert ErrorsLib.InvalidAmount();
-        if (_instantWithdrawFee > instantWithdrawFee) revert ErrorsLib.NotEnoughFee();
+        if (_instantWithdrawFee > instantWithdrawFee) {
+            revert ErrorsLib.NotEnoughFee();
+        }
         instantWithdrawFee -= _instantWithdrawFee;
 
         IERC20Upgradeable(slisBnb).safeTransfer(revenuePool, _instantWithdrawFee);
@@ -689,6 +690,32 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         delete validators[_address];
 
         emit RemoveValidator(_address);
+    }
+
+    /**
+     * @dev Sets the max buffer size percentage; only admin can call this function
+     * @param newPct - New max buffer size percentage; should be less than or equal to 1e10
+     */
+    function setMaxBufferSizePct(uint256 newPct) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newPct <= TEN_DECIMALS, "Invalid percentage");
+
+        maxBufferSizePct = newPct;
+        emit SetMaxBufferSizePct(newPct);
+    }
+
+    /**
+     * @dev Sets the instant withdraw fee rate; only admin can call this function
+     * @param _instantWithdrawFeeRate - New instant withdraw fee rate; should be less than or equal to 1e10
+     */
+    function setInstantWithdrawFeeRate(uint256 _instantWithdrawFeeRate)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_instantWithdrawFeeRate <= TEN_DECIMALS, "Invalid percentage");
+        instantWithdrawFeeRate = _instantWithdrawFeeRate;
+
+        emit SetInstantWithdrawFeeRate(_instantWithdrawFeeRate);
     }
 
     function getTotalPooledBnb() public view override returns (uint256) {
@@ -863,7 +890,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
     function getRedelegateFee(uint256 _amount) public view override returns (uint256) {
         IStakeHub stakeHub = IStakeHub(STAKE_HUB);
-        return _amount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
+        return (_amount * stakeHub.redelegateFeeRate()) / stakeHub.REDELEGATE_FEE_RATE_BASE();
     }
 
     /**
@@ -900,7 +927,9 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         if (totalDelegated == 0) revert ErrorsLib.NotEnoughBnb();
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
-        if (totalBNBInValidators + undelegatedQuota <= totalDelegated) revert ErrorsLib.NotEnoughFee();
+        if (totalBNBInValidators + undelegatedQuota <= totalDelegated) {
+            revert ErrorsLib.NotEnoughFee();
+        }
         uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
 
         uint256 fee = SLisLibrary.calculateFee(totalDelegated, totalProfit, annualRate, synFee, TEN_DECIMALS);
@@ -953,9 +982,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         emit RefundCommission(msg.value, dailySlisBnb, _days, slisBnbAmount);
     }
 
-    /**
-     * @dev Returns the total amount of BNB in all validators
-     */
+    /// @dev Returns the total amount of BNB in all validators
     function getTotalBnbInValidators() public view override returns (uint256) {
         uint256 totalBnb = 0;
         for (uint256 i = 0; i < creditContracts.length; i++) {
@@ -965,5 +992,24 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
             }
         }
         return totalBnb;
+    }
+
+    /**
+     * @dev Checks if the input `_amount` will be delegated or put into the buffer.
+     * @param _amount - the amount of BNB to check
+     * @return _skipDelegation - true if the amount should not be delegated, false otherwise
+     * @return _maxBufferSize - the maximum buffer size
+     * @return  _currBufferSize - the current buffer size
+     */
+    function skipDelegateOrNot(uint256 _amount) public view override returns (bool, uint256, uint256) {
+        uint256 maxBufferSize = (maxBufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
+        uint256 newBufferSize = amountToDelegate - _amount;
+
+        if (maxBufferSize != 0 && newBufferSize <= maxBufferSize) {
+            // max buffer size is not exceeded, do not delegate
+            return (true, maxBufferSize, amountToDelegate);
+        } else {
+            return (false, maxBufferSize, amountToDelegate);
+        }
     }
 }

@@ -77,6 +77,10 @@ interface IStakeManager {
 
     function removeValidator(address _address) external;
 
+    function setMaxBufferSizePct(uint256 _maxBufferSizePct) external;
+
+    function setInstantWithdrawFeeRate(uint256 _feeRate) external;
+
     function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
     function getUserWithdrawalRequests(address _address) external view returns (WithdrawalRequest[] memory);
@@ -110,6 +114,11 @@ interface IStakeManager {
 
     function getRedelegateFee(uint256 bnbAmount) external view returns (uint256);
 
+    function skipDelegateOrNot(uint256 _amount)
+        external
+        view
+        returns (bool skipDelegate, uint256 maxBufferSize, uint256 currBufferSize);
+
     event Deposit(address _src, uint256 _amount);
     event Delegate(uint256 _amount);
     event DelegateTo(address _validator, uint256 _amount, bool _delegateVotePower);
@@ -140,4 +149,6 @@ interface IStakeManager {
     event RefundCommission(uint256 _bnbAmount, uint256 _dailySlisBnb, uint256 _days, uint256 _remainingSlisBnb);
     event InstantWithdraw(address indexed _user, uint256 _slisBnbAmount, uint256 _bnbAmountAfterFee, uint256 _fee);
     event ClaimWithdrawFee(address indexed _recipient, uint256 _amount);
+    event SetMaxBufferSizePct(uint256 _maxBufferSizePct);
+    event SetInstantWithdrawFeeRate(uint256 _feeRate);
 }

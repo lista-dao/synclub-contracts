@@ -14,7 +14,7 @@ import {IStakeManager} from "../../contracts/interfaces/IStakeManager.sol";
 contract ListaStakeManagerTest is Test {
     address private constant STAKE_HUB = 0x0000000000000000000000000000000000002002;
 
-    IStakeManager public stakeManager;
+    ListaStakeManager public stakeManager;
     SLisBNB public slisBnb;
 
     address public proxyAdminOwner = address(0x2A11AA);
@@ -28,6 +28,7 @@ contract ListaStakeManagerTest is Test {
     uint256 public synFee = 500000000;
 
     address public user_A = address(0x2A);
+    address public user_B = address(0x2B);
     address public validator_A = address(0x5A);
     address public credit_A = address(0x55A);
 
@@ -56,7 +57,7 @@ contract ListaStakeManagerTest is Test {
                 validator
             )
         );
-        stakeManager = IStakeManager(address(stakeManagerProxy));
+        stakeManager = ListaStakeManager(payable(address(stakeManagerProxy)));
 
         vm.startPrank(admin);
         slisBnb.setStakeManager(address(stakeManager));
@@ -272,5 +273,105 @@ contract ListaStakeManagerTest is Test {
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
         assertEq(abi.decode(entries[0].data, (uint256)), 10000000);
+    }
+
+    function test_setMaxBufferSizePct() public {
+        vm.recordLogs();
+        vm.startPrank(admin);
+        stakeManager.setMaxBufferSizePct(10 ** 9); // 10%
+        vm.stopPrank();
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 1);
+        assertEq(abi.decode(entries[0].data, (uint256)), 10 ** 9);
+    }
+
+    function test_setInstantWithdrawFeeRate() public {
+        vm.recordLogs();
+        vm.startPrank(admin);
+        stakeManager.setInstantWithdrawFeeRate(10000000); // 0.1%
+        vm.stopPrank();
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 1);
+        assertEq(abi.decode(entries[0].data, (uint256)), 10000000);
+    }
+
+    function test_instantWithrdraw() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("minDelegationBNBChange()"), abi.encode(0));
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 3e18), abi.encode(3000000000000000000)
+        );
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3e18), abi.encode(3000000000000000000)
+        );
+
+        // initialize the stakeManager with total pooled BNB of 1000 Bnb
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        deal(user_B, 1000 ether);
+        stakeManager.deposit{value: 1000 ether}();
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, 1000 ether);
+        assertEq(stakeManager.getTotalPooledBnb(), 1000 ether);
+        assertEq(stakeManager.amountToDelegate(), 0, "buffer size should be 0");
+
+        // config max buffer size to 10%
+        test_setMaxBufferSizePct();
+        // config instant withdraw fee rate to 0.1%
+        test_setInstantWithdrawFeeRate();
+
+        deal(user_A, 200 ether);
+
+        vm.prank(user_A);
+        stakeManager.deposit{value: 10 ether}();
+
+        assertEq(stakeManager.amountToDelegate(), 10 ether, "buffer size should be 10 Bnb");
+        (bool _skipDelegate, uint256 _maxBufferSize, uint256 _currentBufferSize) =
+            stakeManager.skipDelegateOrNot(10 ether);
+        assertTrue(_skipDelegate, "Should skip delegation since buffer size <= 10%");
+        assertEq(_maxBufferSize, 100 ether + 1 ether); // 10% of (1000 Bnb + 10 Bnb)
+        assertEq(_currentBufferSize, 10 ether);
+
+        vm.expectRevert();
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, 10 ether);
+
+        assertEq(stakeManager.getTotalPooledBnb(), 1000 ether + 10 ether);
+        assertEq(slisBnb.balanceOf(user_A), 10 ether);
+
+        // user deposit more Bnb
+        vm.prank(user_A);
+        stakeManager.deposit{value: 150 ether}();
+        (bool skipDelegate, uint256 maxBufferSize, uint256 currentBufferSize) = stakeManager.skipDelegateOrNot(1 ether);
+        assertFalse(skipDelegate, "Should not skip delegation since buffer size > 10%");
+        assertEq(maxBufferSize, 116 ether);
+        assertEq(currentBufferSize, 10 ether + 150 ether); // 10% of (1000 Bnb + 160 Bnb)
+
+        // delegate the 160 - 116 + 1 = 43 Bnb to validator_A; 1 Bnb is for the edge case
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, 43 ether);
+
+        assertEq(stakeManager.amountToDelegate(), 117 ether, "buffer size should be 116 Bnb");
+        assertEq(stakeManager.getTotalPooledBnb(), 1160 ether);
+        assertEq(slisBnb.balanceOf(user_A), 160 ether);
+
+        vm.startPrank(user_A);
+        slisBnb.approve(address(stakeManager), 6 ether);
+        stakeManager.instantWithdraw(6 ether);
+        vm.stopPrank();
+
+        uint256 fee = (6 ether * 0.1) / 100; // 0.1% fee
+        assertEq(stakeManager.amountToDelegate(), 111 ether + fee);
+        assertEq(stakeManager.getTotalPooledBnb(), 1154 ether + fee);
+        assertEq(slisBnb.balanceOf(address(stakeManager)), fee);
+        assertEq(slisBnb.balanceOf(user_A), 154 ether);
+        assertEq(stakeManager.instantWithdrawFee(), fee);
+
+        vm.prank(admin);
+        stakeManager.claimWithdrawFee(fee);
+        assertEq(slisBnb.balanceOf(revenuePool), fee, "revenuePool should receive the withdraw fee");
+        assertEq(stakeManager.instantWithdrawFee(), 0, "Instant withdraw fee should be reset to 0");
     }
 }
