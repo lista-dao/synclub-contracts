@@ -893,18 +893,14 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         return (_amount * stakeHub.redelegateFeeRate()) / stakeHub.REDELEGATE_FEE_RATE_BASE();
     }
 
-    /**
-     * @dev Flips the pause state by Admin
-     */
-    function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        paused() ? _unpause() : _pause();
-    }
-
-    /**
-     * @dev Pauses the contract by Guardian
-     */
+    /// @dev Pauses the contract by Guardian
     function pause() external onlyRole(GUARDIAN) {
         _pause();
+    }
+
+    /// @dev Unpauses the contract by Admin multi-sig
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     /**
