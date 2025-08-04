@@ -163,7 +163,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         if (_synFee > TEN_DECIMALS) revert ErrorsLib.InvalidSynFee();
 
-        _setRoleAdmin(BOT, DEFAULT_ADMIN_ROLE);
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
         _setupRole(BOT, _bot);
 
@@ -290,7 +289,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @notice User must have approved this contract to spend SlisBnb
      */
     function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 bnbAmount) {
-        if (_amountInSlisBnb == 0) revert ErrorsLib.InvalidSlisBnbAmount();
         uint256 withdrawFee = (_amountInSlisBnb * instantWithdrawFeeRate) / TEN_DECIMALS;
         instantWithdrawFee += withdrawFee;
 
@@ -300,7 +298,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         IERC20Upgradeable(slisBnb).transferFrom(msg.sender, address(this), _amountInSlisBnb);
 
-        // Won't change change rate since `bnbAmount` is calculated based on the current exchange rate
+        // Won't change the exchange rate since `bnbAmount` is calculated based on the current exchange rate
         amountToDelegate -= bnbAmount;
         ISLisBNB(slisBnb).burn(address(this), burnAmount);
 
@@ -553,10 +551,10 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Allows the manager to claim the instant withdraw fee
+     * @dev Allows bot to claim the instant withdraw fee
      * @param _instantWithdrawFee - Amount of slisBnb to claim
      */
-    function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+    function claimWithdrawFee(uint256 _instantWithdrawFee) external whenNotPaused onlyRole(BOT) {
         if (_instantWithdrawFee == 0) revert ErrorsLib.InvalidAmount();
         if (_instantWithdrawFee > instantWithdrawFee) {
             revert ErrorsLib.NotEnoughFee();
@@ -642,24 +640,21 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     function setRedirectAddress(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_address == redirectAddress) revert ErrorsLib.InvalidAddress();
-        if (_address == address(0)) revert ErrorsLib.ZeroAddress();
+        if (_address == redirectAddress || _address == address(0)) revert ErrorsLib.InvalidAddress();
 
         redirectAddress = _address;
         emit SetRedirectAddress(_address);
     }
 
     function setRevenuePool(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_address == revenuePool) revert ErrorsLib.InvalidAddress();
-        if (_address == address(0)) revert ErrorsLib.ZeroAddress();
+        if (_address == revenuePool || _address == address(0)) revert ErrorsLib.InvalidAddress();
 
         revenuePool = _address;
         emit SetRevenuePool(_address);
     }
 
     function whitelistValidator(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (validators[_address]) revert ErrorsLib.AlreadyActive();
-        if (_address == address(0)) revert ErrorsLib.ZeroAddress();
+        if (validators[_address] || _address == address(0)) revert ErrorsLib.InvalidAddress();
 
         validators[_address] = true;
         syncCredits(_address, false);

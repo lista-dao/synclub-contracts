@@ -369,7 +369,7 @@ contract ListaStakeManagerTest is Test {
         assertEq(slisBnb.balanceOf(user_A), 154 ether);
         assertEq(stakeManager.instantWithdrawFee(), fee);
 
-        vm.prank(admin);
+        vm.prank(bot);
         stakeManager.claimWithdrawFee(fee);
         assertEq(slisBnb.balanceOf(revenuePool), fee, "revenuePool should receive the withdraw fee");
         assertEq(stakeManager.instantWithdrawFee(), 0, "Instant withdraw fee should be reset to 0");
