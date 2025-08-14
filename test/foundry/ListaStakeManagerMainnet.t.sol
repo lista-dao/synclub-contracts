@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpg
 import "../../contracts/ListaStakeManager.sol";
 import "../../contracts/SLisBNB.sol";
 import "../../contracts/interfaces/IStakeCredit.sol";
+import {ErrorsLib} from "../../contracts/libraries/ErrorsLib.sol";
 
 contract ListaStakeManagerMainnet is Test {
     ListaStakeManager public stakeManager;
@@ -58,7 +59,7 @@ contract ListaStakeManagerMainnet is Test {
 
         // delegate to zero address should be reverted
         vm.prank(admin);
-        vm.expectRevert("Invalid Address");
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         stakeManager.delegateVoteTo(address(0));
 
         // Step 1, delegate voting power to stakeManager itself to track the voting power
