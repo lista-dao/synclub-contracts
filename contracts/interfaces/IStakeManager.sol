@@ -61,8 +61,6 @@ interface IStakeManager {
 
     function setSynFee(uint256 _synFee) external;
 
-    function setAnnualRate(uint256 _annualRate) external;
-
     function setRevenuePool(address _address) external;
 
     function setMinBnb(uint256 _minBnb) external;
@@ -132,7 +130,6 @@ interface IStakeManager {
     event SetManager(address indexed _address);
     event ProposeManager(address indexed _address);
     event SetSynFee(uint256 _synFee);
-    event SetAnnualRate(uint256 _annualRate);
     event SetRedirectAddress(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);

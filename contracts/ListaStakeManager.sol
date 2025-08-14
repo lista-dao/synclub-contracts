@@ -108,9 +108,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     // The minimum amount of BNB required for a withdrawal
     uint256 public minBnb;
 
-    // principal * annualRate / 365; range {0-10_000_000_000}
-    // zero as of Jul 2025
-    uint256 public annualRate;
+    // deprecated variable; zero
+    uint256 public annualRateDeprecated;
 
     // ListaDao validator commission refund
     Refund public refund;
@@ -619,17 +618,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Sets the rate for the protocol fee to be charged on total staked amount
-     * @param _annualRate - the rate to be charged on total staked amount; 10_000_000 (0.1%) by default
-     */
-    function setAnnualRate(uint256 _annualRate) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_annualRate > TEN_DECIMALS) revert ErrorsLib.InvalidSynFee();
-        annualRate = _annualRate;
-
-        emit SetAnnualRate(_annualRate);
-    }
-
-    /**
      * @dev Sets the minimum amount of BNB required for a withdrawal
      * @param _amount - the minimum amount of BNB required for a withdrawal
      */
@@ -922,8 +910,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
             revert ErrorsLib.NotEnoughFee();
         }
         uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
-
-        uint256 fee = SLisLibrary.calculateFee(totalDelegated, totalProfit, annualRate, synFee, TEN_DECIMALS);
+        uint256 fee = SLisLibrary.calculateFeeFromDailyProfit(totalProfit, synFee, TEN_DECIMALS);
 
         totalDelegated += totalProfit;
         uint256 slisBNBAmount = convertBnbToSnBnb(fee);

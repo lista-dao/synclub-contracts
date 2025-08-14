@@ -265,16 +265,6 @@ contract ListaStakeManagerTest is Test {
         assertEq(balanceAfter - balanceBefore, 1 ether);
     }
 
-    function test_setAnnualRate() public {
-        vm.recordLogs();
-        vm.prank(admin);
-        stakeManager.setAnnualRate(10000000); // 0.1%
-        vm.stopPrank();
-        Vm.Log[] memory entries = vm.getRecordedLogs();
-        assertEq(entries.length, 1);
-        assertEq(abi.decode(entries[0].data, (uint256)), 10000000);
-    }
-
     function test_setMaxBufferSizePct() public {
         vm.recordLogs();
         vm.startPrank(admin);
