@@ -32,6 +32,7 @@ contract ListaStakeManagerTest is Test {
     address public validator_A = address(0x5A);
     address public validator_B = address(0x6A);
     address public credit_A = address(0x55A);
+    address public credit_B = address(0x56A);
 
     ClaimMock public claimMock;
     CreditMock public creditMock;
@@ -89,7 +90,9 @@ contract ListaStakeManagerTest is Test {
             STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
         );
         vm.mockCall(
-            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(address(0))
+            STAKE_HUB,
+            abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B),
+            abi.encode(address(0))
         );
 
         vm.startPrank(admin);
@@ -97,8 +100,6 @@ contract ListaStakeManagerTest is Test {
 
         vm.expectRevert("InvalidAddress()");
         stakeManager.whitelistValidator(validator_B);
-
-
     }
 
     function test_delegateTo_validator_A() public {
@@ -122,6 +123,37 @@ contract ListaStakeManagerTest is Test {
 
         assertEq(stakeManager.getTotalPooledBnb(), 1 ether);
         assertEq(slisBnb.balanceOf(user_A), 1 ether);
+    }
+
+    function test_redelegate() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(
+            credit_A,
+            abi.encodeWithSignature("getSharesByPooledBNB(uint256)", uint256(0.5 ether)),
+            abi.encode(uint256(0.5 ether))
+        );
+
+        test_delegateTo_validator_A();
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode(0x00));
+
+        vm.startPrank(bot);
+        vm.expectRevert("InactiveValidator()");
+        stakeManager.redelegate(validator_A, validator_B, 0.5 ether);
+        vm.stopPrank();
+
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_B);
+        vm.stopPrank();
+
+        vm.startPrank(bot);
+        stakeManager.redelegate(validator_A, validator_B, 0.5 ether);
+        vm.stopPrank();
     }
 
     function test_requestWithdraw() public {

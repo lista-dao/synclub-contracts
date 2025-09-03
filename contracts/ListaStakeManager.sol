@@ -234,6 +234,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     {
         if (srcValidator == dstValidator) revert ErrorsLib.InvalidAddress();
         if (!validators[srcValidator]) revert ErrorsLib.InactiveValidator();
+        if (!validators[dstValidator]) revert ErrorsLib.InactiveValidator();
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
 
