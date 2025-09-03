@@ -583,6 +583,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      */
     function syncCredits(address _validator, bool toRemove) internal {
         address credit = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        if (credit == address(0)) revert ErrorsLib.InvalidAddress();
+
         if (toRemove) {
             delete creditStates[credit];
 

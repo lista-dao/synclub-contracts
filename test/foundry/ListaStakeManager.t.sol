@@ -30,6 +30,7 @@ contract ListaStakeManagerTest is Test {
     address public user_A = address(0x2A);
     address public user_B = address(0x2B);
     address public validator_A = address(0x5A);
+    address public validator_B = address(0x6A);
     address public credit_A = address(0x55A);
 
     ClaimMock public claimMock;
@@ -87,10 +88,17 @@ contract ListaStakeManagerTest is Test {
         vm.mockCall(
             STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
         );
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(address(0))
+        );
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         stakeManager.whitelistValidator(validator_A);
-        vm.stopPrank();
+
+        vm.expectRevert("InvalidAddress()");
+        stakeManager.whitelistValidator(validator_B);
+
+
     }
 
     function test_delegateTo_validator_A() public {
