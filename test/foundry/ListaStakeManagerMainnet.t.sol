@@ -26,6 +26,7 @@ contract ListaStakeManagerMainnet is Test {
 
     address bot = 0x9c975db5E112235b6c4a177C2A5c67ab4d758499;
     address admin = 0x5C0F11c927216E4D780E2a219b06632Fb027274E;
+    address pauser = 0xEEfebb1546d88EA0909435DF6f615084DD3c5Bd8;
     address manager = makeAddr("manager");
     address validator_A = 0x343dA7Ff0446247ca47AA41e2A25c5Bbb230ED0A;
     address validator_B = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
@@ -67,7 +68,24 @@ contract ListaStakeManagerMainnet is Test {
         // vm.prank(admin);
         // stakeManager.delegateVoteTo(address(stakeManager));
 
-        // Step 2, delegate voting power to validator_A
+        /////// Pause Contract /////
+        vm.prank(pauser);
+        stakeManager.pause();
+        assertTrue(stakeManager.paused());
+        vm.stopPrank();
+
+        // Step 2 (should fail) delegate voting power to validator_A
+        vm.prank(admin);
+        vm.expectRevert("Pausable: paused");
+        stakeManager.delegateVoteTo(validator_A);
+
+        /////// UnPause Contract /////
+        vm.prank(admin);
+        stakeManager.unpause();
+        assertTrue(!stakeManager.paused());
+        vm.stopPrank();
+
+        // Step 2, (should succeed) delegate voting power to validator_A
         vm.prank(admin);
         stakeManager.delegateVoteTo(validator_A);
 

@@ -501,7 +501,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Allows to delegate all voting power to a specific address; Need to delegate to stake manager itself to track its voting power
      * @param _delegateTo - Address to delegate voting power to; cancel delegation if address is this contract
      */
-    function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function delegateVoteTo(address _delegateTo) external override whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_delegateTo == address(0)) revert ErrorsLib.ZeroAddress();
 
         IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
