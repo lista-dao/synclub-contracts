@@ -125,6 +125,33 @@ contract ListaStakeManagerTest is Test {
         assertEq(slisBnb.balanceOf(user_A), 1 ether);
     }
 
+    function test_removeValidator() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNB(address)"), abi.encode(0x00));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(0x00));
+
+        vm.startPrank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        stakeManager.whitelistValidator(validator_B);
+        vm.stopPrank();
+
+        vm.startPrank(admin);
+        vm.expectRevert("Validator should be inactive");
+        stakeManager.removeValidator(validator_A);
+
+        stakeManager.disableValidator(validator_A);
+        stakeManager.removeValidator(validator_A);
+
+        vm.expectRevert("InvalidAddress()");
+        stakeManager.removeValidator(address(0));
+        vm.stopPrank();
+    }
+
     function test_redelegate() public {
         vm.mockCall(
             STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)

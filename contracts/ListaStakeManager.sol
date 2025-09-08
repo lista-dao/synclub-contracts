@@ -669,6 +669,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _address - the operator address of the validator
      */
     function removeValidator(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_address == address(0)) revert ErrorsLib.InvalidAddress();
         require(!validators[_address], "Validator should be inactive");
         require(getDelegated(_address) == 0, "Balance is not zero");
 
