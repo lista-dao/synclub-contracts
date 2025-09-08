@@ -26,7 +26,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     // The max buffer pool size percentage of `totalPooledBnb`
-    uint256 public maxBufferSizePct;
+    uint256 public bufferSizePct;
 
     // Total delegations including unbonding BNB
     uint256 public totalDelegated;
@@ -682,11 +682,11 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Sets the max buffer size percentage; only admin can call this function
      * @param newPct - New max buffer size percentage; should be less than or equal to 1e10
      */
-    function setMaxBufferSizePct(uint256 newPct) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setBufferSizePct(uint256 newPct) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newPct <= TEN_DECIMALS, "Invalid percentage");
 
-        maxBufferSizePct = newPct;
-        emit SetMaxBufferSizePct(newPct);
+        bufferSizePct = newPct;
+        emit SetBufferSizePct(newPct);
     }
 
     /**
@@ -979,11 +979,11 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Checks if the input `_amount` will be delegated or put into the buffer.
      * @param _amount - the amount of BNB to check
      * @return _skipDelegation - true if the amount should not be delegated, false otherwise
-     * @return _maxBufferSize - the maximum buffer size
+     * @return _bufferSize - the maximum buffer size
      * @return  _currBufferSize - the current buffer size
      */
     function skipDelegateOrNot(uint256 _amount) public view override returns (bool, uint256, uint256) {
-        uint256 maxBufferSize = (maxBufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
+        uint256 maxBufferSize = (bufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
         uint256 newBufferSize = amountToDelegate - _amount;
 
         if (maxBufferSize != 0 && newBufferSize <= maxBufferSize) {

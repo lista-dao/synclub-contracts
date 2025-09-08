@@ -305,11 +305,12 @@ contract ListaStakeManagerTest is Test {
         assertEq(balanceAfter - balanceBefore, 1 ether);
     }
 
-    function test_setMaxBufferSizePct() public {
+    function test_setBufferSizePct() public {
         vm.recordLogs();
         vm.startPrank(admin);
-        stakeManager.setMaxBufferSizePct(10 ** 9); // 10%
+        stakeManager.setBufferSizePct(10 ** 9); // 10%
         vm.stopPrank();
+        assertEq(stakeManager.bufferSizePct(), 10 ** 9);
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
         assertEq(abi.decode(entries[0].data, (uint256)), 10 ** 9);
@@ -348,7 +349,7 @@ contract ListaStakeManagerTest is Test {
         assertEq(stakeManager.amountToDelegate(), 0, "buffer size should be 0");
 
         // config max buffer size to 10%
-        test_setMaxBufferSizePct();
+        test_setBufferSizePct();
         // config instant withdraw fee rate to 0.1%
         test_setInstantWithdrawFeeRate();
 

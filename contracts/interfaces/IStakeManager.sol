@@ -75,7 +75,7 @@ interface IStakeManager {
 
     function removeValidator(address _address) external;
 
-    function setMaxBufferSizePct(uint256 _maxBufferSizePct) external;
+    function setBufferSizePct(uint256 _bufferSizePct) external;
 
     function setInstantWithdrawFeeRate(uint256 _feeRate) external;
 
@@ -146,6 +146,6 @@ interface IStakeManager {
     event RefundCommission(uint256 _bnbAmount, uint256 _dailySlisBnb, uint256 _days, uint256 _remainingSlisBnb);
     event InstantWithdraw(address indexed _user, uint256 _slisBnbAmount, uint256 _bnbAmountAfterFee, uint256 _fee);
     event ClaimWithdrawFee(address indexed _recipient, uint256 _amount);
-    event SetMaxBufferSizePct(uint256 _maxBufferSizePct);
+    event SetBufferSizePct(uint256 _bufferSizePct);
     event SetInstantWithdrawFeeRate(uint256 _feeRate);
 }
