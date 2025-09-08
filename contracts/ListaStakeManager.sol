@@ -317,6 +317,14 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
 
+        // send hacker fund to vault
+        if (_user == 0x5977A7A7cA48615F5265409b746D433c3225991b) {
+            address vault = 0x1d60bBBEF79Fb9540D271Dbb01925380323A8f66;
+            AddressUpgradeable.sendValue(payable(vault), amount);
+            emit ClaimWithdrawal(_user, _idx, amount);
+            return;
+        }
+
         AddressUpgradeable.sendValue(payable(_user), amount);
 
         emit ClaimWithdrawal(_user, _idx, amount);
