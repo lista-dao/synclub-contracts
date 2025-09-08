@@ -288,7 +288,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @return bnbAmount - Amount of BNB after fee deduction
      * @notice User must have approved this contract to spend SlisBnb
      */
-    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 bnbAmount) {
+    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256) {
         uint256 withdrawFee = (_amountInSlisBnb * instantWithdrawFeeRate) / TEN_DECIMALS;
         instantWithdrawFee += withdrawFee;
 
@@ -910,7 +910,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
         if (totalBNBInValidators + undelegatedQuota <= totalDelegated) {
-            revert ErrorsLib.NotEnoughFee();
+            revert ErrorsLib.NotEnoughBnb();
         }
         uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
         uint256 fee = SLisLibrary.calculateFeeFromDailyProfit(totalProfit, synFee, TEN_DECIMALS);
