@@ -383,6 +383,8 @@ contract ListaStakeManagerTest is Test {
         // initialize the stakeManager with total pooled BNB of 1000 Bnb
         vm.prank(admin);
         stakeManager.whitelistValidator(validator_A);
+        vm.prank(admin);
+        stakeManager.setMinBnb(0.0001 ether);
         deal(user_B, 1000 ether);
         stakeManager.deposit{value: 1000 ether}();
         vm.prank(bot);
@@ -432,6 +434,11 @@ contract ListaStakeManagerTest is Test {
 
         vm.startPrank(user_A);
         slisBnb.approve(address(stakeManager), 6 ether);
+
+        uint256 _min = stakeManager.minBnb() - 1;
+        vm.expectRevert("AmountTooSmall()");
+        stakeManager.instantWithdraw(_min);
+
         stakeManager.instantWithdraw(6 ether);
         vm.stopPrank();
 

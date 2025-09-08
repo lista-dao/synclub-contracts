@@ -253,7 +253,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         if (_amountInSlisBnb == 0) revert ErrorsLib.InvalidSlisBnbAmount();
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
-        if (bnbToWithdraw <= minBnb) revert ErrorsLib.AmountTooSmall();
+        if (bnbToWithdraw < minBnb) revert ErrorsLib.AmountTooSmall();
 
         uint256 totalAmount = bnbToWithdraw;
         uint256 totalAmountInSlisBnb = _amountInSlisBnb;
