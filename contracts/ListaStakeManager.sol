@@ -545,6 +545,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param amount - Amount of BNB to withdraw
      */
     function withdrawReserve(uint256 amount) external override whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (amount == 0) revert ErrorsLib.InvalidAmount();
         if (amount > totalReserveAmount) revert ErrorsLib.InvalidAmount();
         totalReserveAmount -= amount;
         AddressUpgradeable.sendValue(payable(msg.sender), amount);
@@ -625,7 +626,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _amount - the minimum amount of BNB required for a withdrawal
      */
     function setMinBnb(uint256 _amount) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_amount == minBnb) revert ErrorsLib.InvalidAmount();
+        if (_amount == minBnb || _amount == 0) revert ErrorsLib.InvalidAmount();
         minBnb = _amount;
         emit SetMinBnb(_amount);
     }

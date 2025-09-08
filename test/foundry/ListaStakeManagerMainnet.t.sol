@@ -265,4 +265,12 @@ contract ListaStakeManagerMainnet is Test {
         assertApproxEqAbs(remainingSlisBnb, 0, 2); // 0 or 1 or 2 wei remaining
         assertEq(lastBurnTime, block.timestamp);
     }
+
+    function test_withdrawReserve() public {
+        vm.startPrank(admin);
+        vm.expectRevert("InvalidAmount()");
+        stakeManager.withdrawReserve(0);
+
+        stakeManager.withdrawReserve(100 ether);
+    }
 }

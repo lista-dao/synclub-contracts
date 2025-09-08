@@ -332,6 +332,21 @@ contract ListaStakeManagerTest is Test {
         assertEq(balanceAfter - balanceBefore, 1 ether);
     }
 
+    function test_setMinBnb() public {
+        vm.recordLogs();
+        vm.startPrank(admin);
+        stakeManager.setMinBnb(0.1 ether);
+        assertEq(stakeManager.minBnb(), 0.1 ether);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 1);
+        assertEq(abi.decode(entries[0].data, (uint256)), 0.1 ether);
+
+        vm.expectRevert("InvalidAmount()");
+        stakeManager.setMinBnb(0);
+
+        vm.stopPrank();
+    }
+
     function test_setBufferSizePct() public {
         vm.recordLogs();
         vm.startPrank(admin);
