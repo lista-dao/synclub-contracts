@@ -25,7 +25,7 @@ import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable, AccessControlUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    // The max buffer pool size percentage of `totalPooledBnb`
+    // The buffer pool size percentage of `totalPooledBnb`
     uint256 public bufferSizePct;
 
     // Total delegations including unbonding BNB
@@ -197,7 +197,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _validator - Operator address of the BSC validator to delegate to
      * @param _amount - Amount of BNB to delegate
      * @notice The amount should be greater than minimum delegation;
-     * @notice bot should monitor buffer size (Aka. `amountToDelegate`) to delegate in case the max buffer size is exceeded
+     * @notice bot should monitor buffer size (Aka. `amountToDelegate`) to delegate in case the buffer size is exceeded
      */
     function delegateTo(address _validator, uint256 _amount) external override whenNotPaused onlyRole(BOT) {
         if (_amount > amountToDelegate) revert ErrorsLib.NotEnoughBnb();
@@ -678,8 +678,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Sets the max buffer size percentage; only admin can call this function
-     * @param newPct - New max buffer size percentage; should be less than or equal to 1e10
+     * @dev Sets the buffer size percentage; only admin can call this function
+     * @param newPct - New buffer size percentage; should be less than or equal to 1e10
      */
     function setBufferSizePct(uint256 newPct) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newPct <= TEN_DECIMALS, "Invalid percentage");
