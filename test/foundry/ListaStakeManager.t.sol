@@ -434,7 +434,6 @@ contract ListaStakeManagerTest is Test {
 
         vm.startPrank(user_A);
         slisBnb.approve(address(stakeManager), 6 ether);
-
         uint256 _min = stakeManager.minBnb() - 1;
         vm.expectRevert("AmountTooSmall()");
         stakeManager.instantWithdraw(_min);

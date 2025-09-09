@@ -518,13 +518,10 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         // Check voting power moved correctly
         if (_delegateTo != address(this)) {
-            require(govToken.getVotes(address(this)) == 0, "Invalid Delegation");
             uint256 currDelegateeChange = currentVotePower - govToken.getVotes(currentDelegatee);
             uint256 newDelegateeChange = govToken.getVotes(_delegateTo) - newVotePower;
 
             require(currDelegateeChange == newDelegateeChange && balance == currDelegateeChange, "Invalid Change");
-        } else {
-            require(govToken.getVotes(address(this)) == balance, "Self-delegation Failed");
         }
 
         emit DelegateVoteTo(_delegateTo, balance);
