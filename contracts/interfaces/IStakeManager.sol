@@ -118,24 +118,18 @@ interface IStakeManager {
         returns (bool skipDelegate, uint256 maxBufferSize, uint256 currBufferSize);
 
     event Deposit(address _src, uint256 _amount);
-    event Delegate(uint256 _amount);
     event DelegateTo(address _validator, uint256 _amount, bool _delegateVotePower);
     event ReDelegate(address _src, address _dest, uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInSlisBnb);
     event ClaimWithdrawal(address indexed _account, uint256 _idx, uint256 _amount);
-    event ClaimAllWithdrawals(address indexed _account, uint256 _amount);
-    event Undelegate(uint256 _nextUndelegatedRequestIndex, uint256 _bnbAmount, uint256 _shares);
     event UndelegateFrom(address indexed _operator, uint256 _bnbAmount, uint256 _shares);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
-    event ProposeManager(address indexed _address);
     event SetSynFee(uint256 _synFee);
     event SetRedirectAddress(address indexed _address);
     event SetRevenuePool(address indexed _address);
     event RewardsCompounded(uint256 _amount);
-    event UndelegateReserve(uint256 _amount);
     event SetReserveAmount(uint256 _amount);
-    event ClaimUndelegated(uint256 _uuid, uint256 _amount);
     event ClaimUndelegatedFrom(address indexed _validator, uint256 _uuid, uint256 _amount);
     event WhitelistValidator(address indexed _address);
     event DisableValidator(address indexed _address);
