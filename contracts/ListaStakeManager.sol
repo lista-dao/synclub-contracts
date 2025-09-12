@@ -25,8 +25,8 @@ import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable, AccessControlUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    // The max buffer pool size percentage of `totalPooledBnb`
-    uint256 public maxBufferSizePct;
+    // The buffer pool size percentage of `totalPooledBnb`
+    uint256 public bufferSizePct;
 
     // Total delegations including unbonding BNB
     uint256 public totalDelegated;
@@ -142,6 +142,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _synFee - Rewards fee to revenue pool
      * @param _revenuePool - Revenue pool to receive rewards
      * @param _validator - Validator to delegate BNB
+     * @param _bufferSizePct - The buffer pool size percentage of `totalPooledBnb`; range {0-1e10}
      */
     function initialize(
         address _slisBnb,
@@ -150,7 +151,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         address _bot,
         uint256 _synFee,
         address _revenuePool,
-        address _validator
+        address _validator,
+        uint256 _bufferSizePct
     ) external override initializer {
         __AccessControl_init();
         __Pausable_init();
@@ -161,19 +163,23 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         ) revert ErrorsLib.ZeroAddress();
 
         if (_synFee > TEN_DECIMALS) revert ErrorsLib.InvalidSynFee();
+        require(_bufferSizePct <= TEN_DECIMALS, "Invalid percentage");
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
         _setupRole(BOT, _bot);
+        _setupRole(MANAGER, _manager);
 
         manager = _manager;
         slisBnb = _slisBnb;
         deprecated = _validator;
         synFee = _synFee;
         revenuePool = _revenuePool;
+        bufferSizePct = _bufferSizePct;
 
         emit SetManager(_manager);
         emit SetRevenuePool(revenuePool);
         emit SetSynFee(_synFee);
+        emit SetBufferSizePct(_bufferSizePct);
     }
 
     /**
@@ -197,7 +203,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _validator - Operator address of the BSC validator to delegate to
      * @param _amount - Amount of BNB to delegate
      * @notice The amount should be greater than minimum delegation;
-     * @notice bot should monitor buffer size (Aka. `amountToDelegate`) to delegate in case the max buffer size is exceeded
+     * @notice bot should monitor buffer size (Aka. `amountToDelegate`) to delegate in case the buffer size is exceeded
      */
     function delegateTo(address _validator, uint256 _amount) external override whenNotPaused onlyRole(BOT) {
         if (_amount > amountToDelegate) revert ErrorsLib.NotEnoughBnb();
@@ -234,11 +240,25 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     {
         if (srcValidator == dstValidator) revert ErrorsLib.InvalidAddress();
         if (!validators[srcValidator]) revert ErrorsLib.InactiveValidator();
+        if (!validators[dstValidator]) revert ErrorsLib.InactiveValidator();
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
 
+        // get dst credit's rewardRecord[index] before redelegation
+        address dstCredit = IStakeHub(STAKE_HUB).getValidatorCreditContract(dstValidator);
+        uint256 index = block.timestamp / IStakeHub(STAKE_HUB).BREATHE_BLOCK_INTERVAL();
+        uint256 recordBefore = IStakeCredit(dstCredit).rewardRecord(index);
+
         // redelegate through native staking contract
         IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
+        uint256 recordAfter = IStakeCredit(dstCredit).rewardRecord(index);
+        require(recordAfter >= recordBefore, "Invalid credit reward record");
+
+        // calc the precise Bnb amount charged for redelegation
+        uint256 redelegateFee = recordAfter - recordBefore;
+        require(totalDelegated >= redelegateFee, "Invalid redelegate fee");
+        // deduct the redelegation fee from totalDelegated
+        totalDelegated = totalDelegated - redelegateFee;
 
         emit ReDelegate(srcValidator, dstValidator, shares);
     }
@@ -252,7 +272,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         if (_amountInSlisBnb == 0) revert ErrorsLib.InvalidSlisBnbAmount();
 
         uint256 bnbToWithdraw = convertSnBnbToBnb(_amountInSlisBnb);
-        if (bnbToWithdraw <= minBnb) revert ErrorsLib.AmountTooSmall();
+        if (bnbToWithdraw < minBnb) revert ErrorsLib.AmountTooSmall();
 
         uint256 totalAmount = bnbToWithdraw;
         uint256 totalAmountInSlisBnb = _amountInSlisBnb;
@@ -287,7 +307,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @return bnbAmount - Amount of BNB after fee deduction
      * @notice User must have approved this contract to spend SlisBnb
      */
-    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256 bnbAmount) {
+    function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256) {
         uint256 withdrawFee = (_amountInSlisBnb * instantWithdrawFeeRate) / TEN_DECIMALS;
         instantWithdrawFee += withdrawFee;
 
@@ -500,7 +520,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Allows to delegate all voting power to a specific address; Need to delegate to stake manager itself to track its voting power
      * @param _delegateTo - Address to delegate voting power to; cancel delegation if address is this contract
      */
-    function delegateVoteTo(address _delegateTo) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function delegateVoteTo(address _delegateTo) external override whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_delegateTo == address(0)) revert ErrorsLib.ZeroAddress();
 
         IVotesUpgradeable govToken = IVotesUpgradeable(GOV_BNB);
@@ -513,17 +533,13 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         uint256 newVotePower = govToken.getVotes(_delegateTo);
         uint256 currentVotePower = govToken.getVotes(currentDelegatee);
         govToken.delegate(_delegateTo);
-        require(govToken.delegates(address(this)) == _delegateTo, "Delegation Failed");
 
         // Check voting power moved correctly
         if (_delegateTo != address(this)) {
-            require(govToken.getVotes(address(this)) == 0, "Invalid Delegation");
             uint256 currDelegateeChange = currentVotePower - govToken.getVotes(currentDelegatee);
             uint256 newDelegateeChange = govToken.getVotes(_delegateTo) - newVotePower;
 
             require(currDelegateeChange == newDelegateeChange && balance == currDelegateeChange, "Invalid Change");
-        } else {
-            require(govToken.getVotes(address(this)) == balance, "Self-delegation Failed");
         }
 
         emit DelegateVoteTo(_delegateTo, balance);
@@ -544,6 +560,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param amount - Amount of BNB to withdraw
      */
     function withdrawReserve(uint256 amount) external override whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (amount == 0) revert ErrorsLib.InvalidAmount();
         if (amount > totalReserveAmount) revert ErrorsLib.InvalidAmount();
         totalReserveAmount -= amount;
         AddressUpgradeable.sendValue(payable(msg.sender), amount);
@@ -583,6 +600,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      */
     function syncCredits(address _validator, bool toRemove) internal {
         address credit = IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator);
+        if (credit == address(0)) revert ErrorsLib.InvalidAddress();
+
         if (toRemove) {
             delete creditStates[credit];
 
@@ -622,7 +641,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _amount - the minimum amount of BNB required for a withdrawal
      */
     function setMinBnb(uint256 _amount) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_amount == minBnb) revert ErrorsLib.InvalidAmount();
+        if (_amount == minBnb || _amount == 0) revert ErrorsLib.InvalidAmount();
         minBnb = _amount;
         emit SetMinBnb(_amount);
     }
@@ -666,6 +685,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _address - the operator address of the validator
      */
     function removeValidator(address _address) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_address == address(0)) revert ErrorsLib.InvalidAddress();
         require(!validators[_address], "Validator should be inactive");
         require(getDelegated(_address) == 0, "Balance is not zero");
 
@@ -676,14 +696,14 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Sets the max buffer size percentage; only admin can call this function
-     * @param newPct - New max buffer size percentage; should be less than or equal to 1e10
+     * @dev Sets the buffer size percentage; only admin can call this function
+     * @param newPct - New buffer size percentage; should be less than or equal to 1e10
      */
-    function setMaxBufferSizePct(uint256 newPct) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setBufferSizePct(uint256 newPct) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newPct <= TEN_DECIMALS, "Invalid percentage");
 
-        maxBufferSizePct = newPct;
-        emit SetMaxBufferSizePct(newPct);
+        bufferSizePct = newPct;
+        emit SetBufferSizePct(newPct);
     }
 
     /**
@@ -769,7 +789,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     function getSlisBnbWithdrawLimit() external view override returns (uint256 _slisBnbWithdrawLimit) {
         uint256 amountToUndelegate = getAmountToUndelegate();
 
-        _slisBnbWithdrawLimit = convertBnbToSnBnb(totalDelegated - amountToUndelegate - unbondingBnb);
+        _slisBnbWithdrawLimit = convertBnbToSnBnb(totalDelegated - amountToUndelegate - unbondingBnb - undelegatedQuota);
     }
 
     /**
@@ -907,7 +927,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         uint256 totalBNBInValidators = getTotalBnbInValidators();
         if (totalBNBInValidators + undelegatedQuota <= totalDelegated) {
-            revert ErrorsLib.NotEnoughFee();
+            revert ErrorsLib.NotEnoughBnb();
         }
         uint256 totalProfit = totalBNBInValidators + undelegatedQuota - totalDelegated;
         uint256 fee = SLisLibrary.calculateFeeFromDailyProfit(totalProfit, synFee, TEN_DECIMALS);
@@ -976,11 +996,11 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Checks if the input `_amount` will be delegated or put into the buffer.
      * @param _amount - the amount of BNB to check
      * @return _skipDelegation - true if the amount should not be delegated, false otherwise
-     * @return _maxBufferSize - the maximum buffer size
+     * @return _bufferSize - the maximum buffer size
      * @return  _currBufferSize - the current buffer size
      */
     function skipDelegateOrNot(uint256 _amount) public view override returns (bool, uint256, uint256) {
-        uint256 maxBufferSize = (maxBufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
+        uint256 maxBufferSize = (bufferSizePct * getTotalPooledBnb()) / TEN_DECIMALS;
         uint256 newBufferSize = amountToDelegate - _amount;
 
         if (maxBufferSize != 0 && newBufferSize <= maxBufferSize) {

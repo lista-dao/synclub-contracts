@@ -30,12 +30,15 @@ contract ListaStakeManagerTest is Test {
     address public user_A = address(0x2A);
     address public user_B = address(0x2B);
     address public validator_A = address(0x5A);
+    address public validator_B = address(0x6A);
     address public credit_A = address(0x55A);
+    address public credit_B = address(0x56A);
 
     ClaimMock public claimMock;
     CreditMock public creditMock;
 
     function setUp() public {
+        uint256 bufferSizePct = 0;
         SLisBNB slisBnbImpl = new SLisBNB();
         TransparentUpgradeableProxy slisBnbProxy = new TransparentUpgradeableProxy(
             address(slisBnbImpl), proxyAdminOwner, abi.encodeWithSignature("initialize(address)", admin)
@@ -47,21 +50,25 @@ contract ListaStakeManagerTest is Test {
             address(stakeManagerImpl),
             proxyAdminOwner,
             abi.encodeWithSignature(
-                "initialize(address,address,address,address,uint256,address,address)",
+                "initialize(address,address,address,address,uint256,address,address,uint256)",
                 address(slisBnb),
                 admin,
                 manager,
                 bot,
                 synFee,
                 revenuePool,
-                validator
+                validator,
+                bufferSizePct
             )
         );
         stakeManager = ListaStakeManager(payable(address(stakeManagerProxy)));
 
-        vm.startPrank(admin);
+        assertTrue(stakeManager.hasRole(stakeManager.DEFAULT_ADMIN_ROLE(), admin));
+        assertTrue(stakeManager.hasRole(stakeManager.MANAGER(), manager));
+        assertTrue(stakeManager.hasRole(stakeManager.BOT(), bot));
+
+        vm.prank(admin);
         slisBnb.setStakeManager(address(stakeManager));
-        vm.stopPrank();
 
         creditMock = new CreditMock();
         creditMock.setStakeManager(address(stakeManager));
@@ -70,6 +77,8 @@ contract ListaStakeManagerTest is Test {
 
         // Modify `nextConfirmedRequestUUID` to have it start from 1
         vm.store(address(stakeManager), bytes32(uint256(205)), bytes32(uint256(1)));
+
+        assertEq(stakeManager.bufferSizePct(), 0);
     }
 
     function test_deposit() public {
@@ -81,16 +90,25 @@ contract ListaStakeManagerTest is Test {
 
         assertEq(stakeManager.getTotalPooledBnb(), 0.5 ether);
         assertEq(slisBnb.balanceOf(user_A), 0.5 ether);
+        assertEq(stakeManager.getAmountToUndelegate(), 0);
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 0);
     }
 
     function test_whitelistValidator() public {
         vm.mockCall(
             STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
         );
+        vm.mockCall(
+            STAKE_HUB,
+            abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B),
+            abi.encode(address(0))
+        );
 
-        vm.prank(admin);
+        vm.startPrank(admin);
         stakeManager.whitelistValidator(validator_A);
-        vm.stopPrank();
+
+        vm.expectRevert("InvalidAddress()");
+        stakeManager.whitelistValidator(validator_B);
     }
 
     function test_delegateTo_validator_A() public {
@@ -114,6 +132,72 @@ contract ListaStakeManagerTest is Test {
 
         assertEq(stakeManager.getTotalPooledBnb(), 1 ether);
         assertEq(slisBnb.balanceOf(user_A), 1 ether);
+    }
+
+    function test_removeValidator() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNB(address)"), abi.encode(0x00));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(0x00));
+
+        vm.startPrank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        stakeManager.whitelistValidator(validator_B);
+        vm.stopPrank();
+
+        vm.startPrank(admin);
+        vm.expectRevert("Validator should be inactive");
+        stakeManager.removeValidator(validator_A);
+
+        stakeManager.disableValidator(validator_A);
+        stakeManager.removeValidator(validator_A);
+
+        vm.expectRevert("InvalidAddress()");
+        stakeManager.removeValidator(address(0));
+        vm.stopPrank();
+    }
+
+    function test_redelegate() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(
+            credit_A,
+            abi.encodeWithSignature("getSharesByPooledBNB(uint256)", uint256(0.5 ether)),
+            abi.encode(uint256(0.5 ether))
+        );
+
+        test_delegateTo_validator_A();
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode(0x00));
+
+        vm.startPrank(bot);
+        vm.expectRevert("InactiveValidator()");
+        stakeManager.redelegate(validator_A, validator_B, 0.5 ether);
+        vm.stopPrank();
+
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("BREATHE_BLOCK_INTERVAL()"), abi.encode(uint256(1 days)));
+        vm.mockCall(
+            credit_B,
+            abi.encodeWithSignature("rewardRecord(uint256)"),
+            abi.encode(0x00) // no redelegation fee
+        );
+
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_B);
+        vm.stopPrank();
+
+        uint256 totalDelegatedBefore = stakeManager.totalDelegated();
+        vm.prank(bot);
+        stakeManager.redelegate(validator_A, validator_B, 0.5 ether);
+
+        assertEq(stakeManager.totalDelegated(), totalDelegatedBefore); // totalDelegated should remain the same since no redelegation fee
     }
 
     function test_requestWithdraw() public {
@@ -181,8 +265,13 @@ contract ListaStakeManagerTest is Test {
         stakeManager.undelegateFrom(validator_A, 1 ether);
         vm.stopPrank();
 
+        assertEq(stakeManager.totalDelegated(), 10 ether);
+        assertEq(stakeManager.amountToDelegate(), 0);
+        assertEq(stakeManager.unbondingBnb(), 1 ether);
         assertEq(stakeManager.getTotalPooledBnb(), 10 ether);
         assertEq(stakeManager.getAmountToUndelegate(), 1 ether); // 2 ether - 1 ether
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 8 ether); // 10 - 1 - 1 - 0
+        assertEq(stakeManager.undelegatedQuota(), 0);
     }
 
     function test_claimWithdraw() public {
@@ -238,12 +327,28 @@ contract ListaStakeManagerTest is Test {
         vm.etch(credit_A, address(creditMock).code);
 
         credit_A.call(abi.encodeWithSignature("setStakeManager(address)", address(stakeManager)));
-        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 3000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
-
+        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 1000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
         STAKE_HUB.call(abi.encodeWithSignature("setCreditMock(address)", credit_A));
 
+        // 1st undelegation 1 bnb
         vm.prank(bot);
         stakeManager.claimUndelegated(validator_A);
+
+        assertEq(stakeManager.unbondingBnb(), 2 ether);
+        assertEq(stakeManager.undelegatedQuota(), 1 ether); // cannot fullfill the 2 bnb request
+        assertEq(stakeManager.totalDelegated(), 10 ether);
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 7 ether); // 10 - 0 - 2 - 1
+
+        skip(7 days);
+
+        // 2nd undelegation 2 bnb
+        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 2000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
+        vm.prank(bot);
+        stakeManager.claimUndelegated(validator_A);
+        assertEq(stakeManager.unbondingBnb(), 0);
+        assertEq(stakeManager.undelegatedQuota(), 0); // can fullfill all requests
+        assertEq(stakeManager.totalDelegated(), 7 ether);
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 7 ether); // 7 - 0 - 0 - 0
 
         uint256 balanceBefore = address(user_A).balance;
         vm.prank(user_A);
@@ -265,11 +370,27 @@ contract ListaStakeManagerTest is Test {
         assertEq(balanceAfter - balanceBefore, 1 ether);
     }
 
-    function test_setMaxBufferSizePct() public {
+    function test_setMinBnb() public {
         vm.recordLogs();
         vm.startPrank(admin);
-        stakeManager.setMaxBufferSizePct(10 ** 9); // 10%
+        stakeManager.setMinBnb(0.1 ether);
+        assertEq(stakeManager.minBnb(), 0.1 ether);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 1);
+        assertEq(abi.decode(entries[0].data, (uint256)), 0.1 ether);
+
+        vm.expectRevert("InvalidAmount()");
+        stakeManager.setMinBnb(0);
+
         vm.stopPrank();
+    }
+
+    function test_setBufferSizePct() public {
+        vm.recordLogs();
+        vm.startPrank(admin);
+        stakeManager.setBufferSizePct(10 ** 9); // 10%
+        vm.stopPrank();
+        assertEq(stakeManager.bufferSizePct(), 10 ** 9);
         Vm.Log[] memory entries = vm.getRecordedLogs();
         assertEq(entries.length, 1);
         assertEq(abi.decode(entries[0].data, (uint256)), 10 ** 9);
@@ -300,6 +421,8 @@ contract ListaStakeManagerTest is Test {
         // initialize the stakeManager with total pooled BNB of 1000 Bnb
         vm.prank(admin);
         stakeManager.whitelistValidator(validator_A);
+        vm.prank(admin);
+        stakeManager.setMinBnb(0.0001 ether);
         deal(user_B, 1000 ether);
         stakeManager.deposit{value: 1000 ether}();
         vm.prank(bot);
@@ -308,7 +431,7 @@ contract ListaStakeManagerTest is Test {
         assertEq(stakeManager.amountToDelegate(), 0, "buffer size should be 0");
 
         // config max buffer size to 10%
-        test_setMaxBufferSizePct();
+        test_setBufferSizePct();
         // config instant withdraw fee rate to 0.1%
         test_setInstantWithdrawFeeRate();
 
@@ -349,6 +472,10 @@ contract ListaStakeManagerTest is Test {
 
         vm.startPrank(user_A);
         slisBnb.approve(address(stakeManager), 6 ether);
+        uint256 _min = stakeManager.minBnb() - 1;
+        vm.expectRevert("AmountTooSmall()");
+        stakeManager.instantWithdraw(_min);
+
         stakeManager.instantWithdraw(6 ether);
         vm.stopPrank();
 

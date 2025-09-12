@@ -7,7 +7,6 @@ library ErrorsLib {
     error InvalidAmount();
     error InvalidSlisBnbAmount();
     error InactiveValidator();
-    error AlreadyActive();
     error NotEnoughBnb();
     error NotEnoughFee();
     error AmountTooSmall();
