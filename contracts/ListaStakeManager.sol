@@ -520,7 +520,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         uint256 newVotePower = govToken.getVotes(_delegateTo);
         uint256 currentVotePower = govToken.getVotes(currentDelegatee);
         govToken.delegate(_delegateTo);
-        require(govToken.delegates(address(this)) == _delegateTo, "Delegation Failed");
 
         // Check voting power moved correctly
         if (_delegateTo != address(this)) {
