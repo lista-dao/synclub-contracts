@@ -167,6 +167,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
         _setupRole(BOT, _bot);
+        _setupRole(MANAGER, _manager);
 
         manager = _manager;
         slisBnb = _slisBnb;

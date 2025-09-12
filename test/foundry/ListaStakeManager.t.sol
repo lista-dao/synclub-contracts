@@ -63,9 +63,12 @@ contract ListaStakeManagerTest is Test {
         );
         stakeManager = ListaStakeManager(payable(address(stakeManagerProxy)));
 
-        vm.startPrank(admin);
+        assertTrue(stakeManager.hasRole(stakeManager.DEFAULT_ADMIN_ROLE(), admin));
+        assertTrue(stakeManager.hasRole(stakeManager.MANAGER(), manager));
+        assertTrue(stakeManager.hasRole(stakeManager.BOT(), bot));
+
+        vm.prank(admin);
         slisBnb.setStakeManager(address(stakeManager));
-        vm.stopPrank();
 
         creditMock = new CreditMock();
         creditMock.setStakeManager(address(stakeManager));
