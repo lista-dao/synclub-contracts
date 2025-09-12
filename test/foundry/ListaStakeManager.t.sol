@@ -87,6 +87,8 @@ contract ListaStakeManagerTest is Test {
 
         assertEq(stakeManager.getTotalPooledBnb(), 0.5 ether);
         assertEq(slisBnb.balanceOf(user_A), 0.5 ether);
+        assertEq(stakeManager.getAmountToUndelegate(), 0);
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 0);
     }
 
     function test_whitelistValidator() public {
@@ -252,8 +254,13 @@ contract ListaStakeManagerTest is Test {
         stakeManager.undelegateFrom(validator_A, 1 ether);
         vm.stopPrank();
 
+        assertEq(stakeManager.totalDelegated(), 10 ether);
+        assertEq(stakeManager.amountToDelegate(), 0);
+        assertEq(stakeManager.unbondingBnb(), 1 ether);
         assertEq(stakeManager.getTotalPooledBnb(), 10 ether);
         assertEq(stakeManager.getAmountToUndelegate(), 1 ether); // 2 ether - 1 ether
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 8 ether); // 10 - 1 - 1 - 0
+        assertEq(stakeManager.undelegatedQuota(), 0);
     }
 
     function test_claimWithdraw() public {
@@ -309,12 +316,28 @@ contract ListaStakeManagerTest is Test {
         vm.etch(credit_A, address(creditMock).code);
 
         credit_A.call(abi.encodeWithSignature("setStakeManager(address)", address(stakeManager)));
-        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 3000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
-
+        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 1000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
         STAKE_HUB.call(abi.encodeWithSignature("setCreditMock(address)", credit_A));
 
+        // 1st undelegation 1 bnb
         vm.prank(bot);
         stakeManager.claimUndelegated(validator_A);
+
+        assertEq(stakeManager.unbondingBnb(), 2 ether);
+        assertEq(stakeManager.undelegatedQuota(), 1 ether); // cannot fullfill the 2 bnb request
+        assertEq(stakeManager.totalDelegated(), 10 ether);
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 7 ether); // 10 - 0 - 2 - 1
+
+        skip(7 days);
+
+        // 2nd undelegation 2 bnb
+        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 2000000000000000000)); // make the mock credit contract send 3 BNB to stakeManager
+        vm.prank(bot);
+        stakeManager.claimUndelegated(validator_A);
+        assertEq(stakeManager.unbondingBnb(), 0);
+        assertEq(stakeManager.undelegatedQuota(), 0); // can fullfill all requests
+        assertEq(stakeManager.totalDelegated(), 7 ether);
+        assertEq(stakeManager.getSlisBnbWithdrawLimit(), 7 ether); // 7 - 0 - 0 - 0
 
         uint256 balanceBefore = address(user_A).balance;
         vm.prank(user_A);

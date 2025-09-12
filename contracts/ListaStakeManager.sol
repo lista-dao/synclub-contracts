@@ -776,7 +776,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     function getSlisBnbWithdrawLimit() external view override returns (uint256 _slisBnbWithdrawLimit) {
         uint256 amountToUndelegate = getAmountToUndelegate();
 
-        _slisBnbWithdrawLimit = convertBnbToSnBnb(totalDelegated - amountToUndelegate - unbondingBnb);
+        _slisBnbWithdrawLimit = convertBnbToSnBnb(totalDelegated - amountToUndelegate - unbondingBnb - undelegatedQuota);
     }
 
     /**
