@@ -32,6 +32,8 @@ contract ListaStakeManagerMainnet is Test {
     address validator_B = 0xF2B1d86DC7459887B1f7Ce8d840db1D87613Ce7f;
     address validator_C = 0x7766A5EE8294343bF6C8dcf3aA4B6D856606703A;
     IStakeCredit credit_A = IStakeCredit(0xeC06CB25d9add4bDd67B61432163aFF9028Aa921);
+    IStakeCredit credit_B = IStakeCredit(0x2804ADA1C219E50898e75B2Bd052030580f4fbAC);
+    address constant STAKE_HUB = 0x0000000000000000000000000000000000002002;
 
     address user_A = address(0xAA);
 
@@ -160,6 +162,12 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(govToken.getVotes(validator_A), votes_A_before);
     }
 
+    function delegateTo_validatorA() public {
+        uint256 _amount = stakeManager.amountToDelegate();
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, _amount);
+    }
+
     function test_refundCommission_normal() public {
         deal(manager, 100000 ether);
 
@@ -179,9 +187,7 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(lastBurnTime, 0);
 
         skip(1 hours);
-        uint256 _amount = stakeManager.amountToDelegate();
-        vm.prank(bot);
-        stakeManager.delegateTo(validator_A, _amount);
+        delegateTo_validatorA();
 
         // First burn
         skip(1 days);
@@ -273,6 +279,28 @@ contract ListaStakeManagerMainnet is Test {
         assertEq(dailySlisBnb, dailySlisBnb_3);
         assertApproxEqAbs(remainingSlisBnb, 0, 2); // 0 or 1 or 2 wei remaining
         assertEq(lastBurnTime, block.timestamp);
+    }
+
+    function test_redelegateFee() public {
+        deal(user_A, 100000 ether);
+        vm.prank(user_A);
+        stakeManager.deposit{value: 100000 ether}();
+        delegateTo_validatorA();
+
+        uint256 index = block.timestamp / IStakeHub(STAKE_HUB).BREATHE_BLOCK_INTERVAL();
+        uint256 recordBeforeA = credit_A.rewardRecord(index);
+        uint256 recordBeforeB = credit_B.rewardRecord(index);
+        uint256 totalDelegateBefore = stakeManager.totalDelegated();
+        vm.prank(bot);
+        stakeManager.redelegate(validator_A, validator_B, 100000 ether);
+        uint256 totalDelegateAfter = stakeManager.totalDelegated();
+        uint256 recordAfterA = credit_A.rewardRecord(index);
+        uint256 recordAfterB = credit_B.rewardRecord(index);
+
+        uint256 redelegateFee = totalDelegateBefore - totalDelegateAfter;
+        assertApproxEqAbs(redelegateFee, (100000 ether * 2) / 100000, 1); // 2/100000 (0.002%)
+        assertEq(recordAfterA, recordBeforeA);
+        assertEq(recordAfterB, recordBeforeB + redelegateFee);
     }
 
     function test_withdrawReserve() public {

@@ -244,8 +244,21 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
 
         uint256 shares = convertBnbToShares(srcValidator, _amount);
 
+        // get dst credit's rewardRecord[index] before redelegation
+        address dstCredit = IStakeHub(STAKE_HUB).getValidatorCreditContract(dstValidator);
+        uint256 index = block.timestamp / IStakeHub(STAKE_HUB).BREATHE_BLOCK_INTERVAL();
+        uint256 recordBefore = IStakeCredit(dstCredit).rewardRecord(index);
+
         // redelegate through native staking contract
         IStakeHub(STAKE_HUB).redelegate(srcValidator, dstValidator, shares, delegateVotePower);
+        uint256 recordAfter = IStakeCredit(dstCredit).rewardRecord(index);
+        require(recordAfter >= recordBefore, "Invalid credit reward record");
+
+        // calc the precise Bnb amount charged for redelegation
+        uint256 redelegateFee = recordAfter - recordBefore;
+        require(totalDelegated >= redelegateFee, "Invalid redelegate fee");
+        // deduct the redelegation fee from totalDelegated
+        totalDelegated = totalDelegated - redelegateFee;
 
         emit ReDelegate(srcValidator, dstValidator, shares);
     }

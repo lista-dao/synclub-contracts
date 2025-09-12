@@ -182,14 +182,22 @@ contract ListaStakeManagerTest is Test {
         vm.mockCall(
             STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
         );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("BREATHE_BLOCK_INTERVAL()"), abi.encode(uint256(1 days)));
+        vm.mockCall(
+            credit_B,
+            abi.encodeWithSignature("rewardRecord(uint256)"),
+            abi.encode(0x00) // no redelegation fee
+        );
 
         vm.prank(admin);
         stakeManager.whitelistValidator(validator_B);
         vm.stopPrank();
 
-        vm.startPrank(bot);
+        uint256 totalDelegatedBefore = stakeManager.totalDelegated();
+        vm.prank(bot);
         stakeManager.redelegate(validator_A, validator_B, 0.5 ether);
-        vm.stopPrank();
+
+        assertEq(stakeManager.totalDelegated(), totalDelegatedBefore); // totalDelegated should remain the same since no redelegation fee
     }
 
     function test_requestWithdraw() public {
