@@ -38,6 +38,7 @@ contract ListaStakeManagerTest is Test {
     CreditMock public creditMock;
 
     function setUp() public {
+        uint256 bufferSizePct = 0;
         SLisBNB slisBnbImpl = new SLisBNB();
         TransparentUpgradeableProxy slisBnbProxy = new TransparentUpgradeableProxy(
             address(slisBnbImpl), proxyAdminOwner, abi.encodeWithSignature("initialize(address)", admin)
@@ -49,14 +50,15 @@ contract ListaStakeManagerTest is Test {
             address(stakeManagerImpl),
             proxyAdminOwner,
             abi.encodeWithSignature(
-                "initialize(address,address,address,address,uint256,address,address)",
+                "initialize(address,address,address,address,uint256,address,address,uint256)",
                 address(slisBnb),
                 admin,
                 manager,
                 bot,
                 synFee,
                 revenuePool,
-                validator
+                validator,
+                bufferSizePct
             )
         );
         stakeManager = ListaStakeManager(payable(address(stakeManagerProxy)));
@@ -72,6 +74,8 @@ contract ListaStakeManagerTest is Test {
 
         // Modify `nextConfirmedRequestUUID` to have it start from 1
         vm.store(address(stakeManager), bytes32(uint256(205)), bytes32(uint256(1)));
+
+        assertEq(stakeManager.bufferSizePct(), 0);
     }
 
     function test_deposit() public {

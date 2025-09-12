@@ -142,6 +142,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @param _synFee - Rewards fee to revenue pool
      * @param _revenuePool - Revenue pool to receive rewards
      * @param _validator - Validator to delegate BNB
+     * @param _bufferSizePct - The buffer pool size percentage of `totalPooledBnb`; range {0-1e10}
      */
     function initialize(
         address _slisBnb,
@@ -150,7 +151,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         address _bot,
         uint256 _synFee,
         address _revenuePool,
-        address _validator
+        address _validator,
+        uint256 _bufferSizePct
     ) external override initializer {
         __AccessControl_init();
         __Pausable_init();
@@ -161,6 +163,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         ) revert ErrorsLib.ZeroAddress();
 
         if (_synFee > TEN_DECIMALS) revert ErrorsLib.InvalidSynFee();
+        require(_bufferSizePct <= TEN_DECIMALS, "Invalid percentage");
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
         _setupRole(BOT, _bot);
@@ -170,10 +173,12 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         deprecated = _validator;
         synFee = _synFee;
         revenuePool = _revenuePool;
+        bufferSizePct = _bufferSizePct;
 
         emit SetManager(_manager);
         emit SetRevenuePool(revenuePool);
         emit SetSynFee(_synFee);
+        emit SetBufferSizePct(_bufferSizePct);
     }
 
     /**

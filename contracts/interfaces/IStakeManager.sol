@@ -30,7 +30,8 @@ interface IStakeManager {
         address _bot,
         uint256 _feeBps,
         address _revenuePool,
-        address _validator
+        address _validator,
+        uint256 _bufferSizePct
     ) external;
 
     function deposit() external payable;
