@@ -900,11 +900,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         delegateVotePower = !delegateVotePower;
     }
 
-    receive() external payable {
-        if ((!creditStates[msg.sender]) && msg.sender != redirectAddress) {
-            AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
-        }
-    }
+    receive() external payable {}
 
     /**
      * @dev Allows bot to compound rewards

@@ -483,4 +483,21 @@ contract ListaStakeManagerTest is Test {
         assertEq(slisBnb.balanceOf(revenuePool), fee, "revenuePool should receive the withdraw fee");
         assertEq(stakeManager.instantWithdrawFee(), 0, "Instant withdraw fee should be reset to 0");
     }
+
+    function test_receive() public {
+        vm.deal(user_A, 10 ether);
+        vm.deal(admin, 10 ether);
+
+        // setting admin as the credit contract for simplicity
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(admin)
+        );
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        vm.prank(admin);
+        (bool success,) = address(stakeManager).call{value: 10 ether, gas: 2300}("");
+        vm.prank(user_A);
+        (success,) = address(stakeManager).call{value: 10 ether, gas: 2300}("");
+        assertTrue(success);
+    }
 }
