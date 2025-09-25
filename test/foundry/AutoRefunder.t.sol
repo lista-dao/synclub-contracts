@@ -55,6 +55,7 @@ contract AutoRefunderTest is Test {
         address validator = address(0x5A11AA6);
 
         uint256 synFee = 500000000;
+        uint256 bufferSizePct = 10 ** 9; // 10%
 
         SLisBNB slisBnbImpl = new SLisBNB();
         TransparentUpgradeableProxy slisBnbProxy = new TransparentUpgradeableProxy(
@@ -67,14 +68,15 @@ contract AutoRefunderTest is Test {
             address(stakeManagerImpl),
             proxyAdminOwner,
             abi.encodeWithSignature(
-                "initialize(address,address,address,address,uint256,address,address)",
+                "initialize(address,address,address,address,uint256,address,address,uint256)",
                 address(slisBnb),
                 admin,
                 manager,
                 bot,
                 synFee,
                 revenuePool,
-                validator
+                validator,
+                bufferSizePct
             )
         );
         stakeManager = ListaStakeManager(payable(address(stakeManagerProxy)));
