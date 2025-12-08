@@ -875,6 +875,13 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
+     * @dev Resumes the contract by Guardian
+     */
+    function unpause() external onlyRole(GUARDIAN) {
+        _unpause();
+    }
+
+    /**
      * @dev Pauses the contract by Guardian
      */
     function pause() external onlyRole(GUARDIAN) {
