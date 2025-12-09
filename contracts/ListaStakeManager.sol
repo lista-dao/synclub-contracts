@@ -868,13 +868,6 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Flips the pause state by Admin
-     */
-    function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        paused() ? _unpause() : _pause();
-    }
-
-    /**
      * @dev Resumes the contract by Guardian
      */
     function unpause() external onlyRole(GUARDIAN) {
