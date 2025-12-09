@@ -867,10 +867,18 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         return _amount * stakeHub.redelegateFeeRate() / stakeHub.REDELEGATE_FEE_RATE_BASE();
     }
 
+    /// @dev to be deprecated. Use pause() and unpause() instead.
+    /// @dev backward compatible purpose only
+    function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        paused() ? _unpause() : _pause();
+    }
+
     /**
-     * @dev Resumes the contract by Guardian
+     * @dev Resumes the contract by MANAGER
+     * @notice MANAGER can be our EmergencySwitchHub Contract as well
+     *         the ES-hub contract is limited to unpause the ListaStakeManager only
      */
-    function unpause() external onlyRole(GUARDIAN) {
+    function unpause() external onlyRole(MANAGER) {
         _unpause();
     }
 
