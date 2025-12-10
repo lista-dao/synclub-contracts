@@ -11,6 +11,13 @@ import "../../contracts/mock/MockClaim.sol";
 
 import {IStakeManager} from "../../contracts/interfaces/IStakeManager.sol";
 
+interface IStakeManagerExtended is IStakeManager {
+    function grantRole(bytes32 role, address account) external;
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+}
+
 contract ListaStakeManagerTest is Test {
     address private constant STAKE_HUB = 0x0000000000000000000000000000000000002002;
 
@@ -24,6 +31,8 @@ contract ListaStakeManagerTest is Test {
     address public bot = address(0x5A11AA3);
     address public revenuePool = address(0x5A11AA4);
     address public validator = address(0x5A11AA6);
+    address public guardian = makeAddr("guardian");
+    bytes32 public constant GUARDIAN = keccak256("GUARDIAN");
 
     uint256 public synFee = 500000000;
 
@@ -67,8 +76,27 @@ contract ListaStakeManagerTest is Test {
 
         claimMock = new ClaimMock();
 
+        vm.prank(admin);
+        IStakeManagerExtended(address(stakeManager)).grantRole(GUARDIAN, guardian);
+
         // Modify `nextConfirmedRequestUUID` to have it start from 1
         vm.store(address(stakeManager), bytes32(uint256(205)), bytes32(uint256(1)));
+    }
+
+    function test_pause_and_unpause() public {
+        IStakeManagerExtended _stakeManager = IStakeManagerExtended(address(stakeManager));
+
+        vm.prank(guardian);
+        _stakeManager.pause();
+        vm.stopPrank();
+
+        assertTrue(_stakeManager.paused());
+
+        vm.prank(guardian);
+        _stakeManager.unpause();
+        vm.stopPrank();
+
+        assertFalse(_stakeManager.paused());
     }
 
     function test_deposit() public {
