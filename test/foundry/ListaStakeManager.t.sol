@@ -426,6 +426,50 @@ contract ListaStakeManagerTest is Test {
         assertEq(abi.decode(entries[0].data, (uint256)), 10000000);
     }
 
+    function test_setInstantWhitelist() public {
+        assertFalse(stakeManager.instantWhitelist(user_A));
+
+        // only MANAGER can manage the whitelist
+        vm.prank(user_A);
+        vm.expectRevert();
+        stakeManager.setInstantWhitelist(user_A, true);
+
+        // zero address is rejected
+        vm.prank(manager);
+        vm.expectRevert("ZeroAddress()");
+        stakeManager.setInstantWhitelist(address(0), true);
+
+        // manager whitelists user_A
+        vm.prank(manager);
+        stakeManager.setInstantWhitelist(user_A, true);
+        assertTrue(stakeManager.instantWhitelist(user_A));
+
+        // manager removes user_A
+        vm.prank(manager);
+        stakeManager.setInstantWhitelist(user_A, false);
+        assertFalse(stakeManager.instantWhitelist(user_A));
+    }
+
+    function test_setInstantWhitelistOff() public {
+        // whitelist is enforced by default
+        assertFalse(stakeManager.instantWhitelistOff());
+
+        // only DEFAULT_ADMIN_ROLE can flip the global switch
+        vm.prank(manager);
+        vm.expectRevert();
+        stakeManager.setInstantWhitelistOff(true);
+
+        // admin disables the whitelist globally
+        vm.prank(admin);
+        stakeManager.setInstantWhitelistOff(true);
+        assertTrue(stakeManager.instantWhitelistOff());
+
+        // admin re-enables enforcement
+        vm.prank(admin);
+        stakeManager.setInstantWhitelistOff(false);
+        assertFalse(stakeManager.instantWhitelistOff());
+    }
+
     function test_instantWithrdraw() public {
         vm.mockCall(
             STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
@@ -489,6 +533,29 @@ contract ListaStakeManagerTest is Test {
         assertEq(stakeManager.amountToDelegate(), 117 ether, "buffer size should be 116 Bnb");
         assertEq(stakeManager.getTotalPooledBnb(), 1160 ether);
         assertEq(slisBnb.balanceOf(user_A), 160 ether);
+
+        // by default the whitelist is enforced: a non-whitelisted user is rejected
+        assertFalse(stakeManager.instantWhitelistOff());
+        vm.prank(user_A);
+        vm.expectRevert("NotWhitelisted()");
+        stakeManager.instantWithdraw(6 ether);
+
+        // global switch off: the whitelist is bypassed, so a non-whitelisted user
+        // passes the gate and only fails later on the min-amount check
+        vm.prank(admin);
+        stakeManager.setInstantWhitelistOff(true);
+        vm.prank(user_A);
+        vm.expectRevert("AmountTooSmall()");
+        stakeManager.instantWithdraw(0);
+
+        // re-enable enforcement
+        vm.prank(admin);
+        stakeManager.setInstantWhitelistOff(false);
+
+        // whitelist user_A for instant withdrawal
+        vm.prank(manager);
+        stakeManager.setInstantWhitelist(user_A, true);
+        assertTrue(stakeManager.instantWhitelist(user_A));
 
         vm.startPrank(user_A);
         slisBnb.approve(address(stakeManager), 6 ether);
