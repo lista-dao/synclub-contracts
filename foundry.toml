@@ -11,3 +11,13 @@ remappings=[
 
 [profile.ci]
 verbosity = 4
+
+# Exclude legacy/reference contracts from `forge fmt` (and `forge fmt --check` in CI)
+[fmt]
+ignore = [
+    "contracts/libraries/SLisLibrary.sol",
+    "contracts/oldContracts/ListaStakeManager.sol",
+    "contracts/oldContracts/SnStakeManager.sol",
+    "contracts/oldContracts/interfaces/INativeStaking.sol",
+    "contracts/oldContracts/temp/SnStakeManager.sol",
+]
