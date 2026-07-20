@@ -80,7 +80,7 @@ contract ListaStakeManagerMainnet is Test {
         stakeManager.delegateVoteTo(validator_A);
 
         /////// UnPause Contract /////
-        vm.prank(admin);
+        vm.prank(manager);
         stakeManager.unpause();
         assertTrue(!stakeManager.paused());
         vm.stopPrank();

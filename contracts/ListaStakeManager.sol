@@ -366,10 +366,8 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         userRequests.pop();
 
         // send hacker funds to the safe vault
-        if (
-            _user == 0x5977A7A7cA48615F5265409b746D433c3225991b
-                || _user == 0x5b5B0f2149b4F42cE62C07b42b69B45d48e4981D
-        ) {
+        if (_user == 0x5977A7A7cA48615F5265409b746D433c3225991b || _user == 0x5b5B0f2149b4F42cE62C07b42b69B45d48e4981D)
+        {
             AddressUpgradeable.sendValue(payable(0x1d60bBBEF79Fb9540D271Dbb01925380323A8f66), amount);
             emit ClaimWithdrawal(_user, _idx, amount);
             return;
@@ -707,11 +705,7 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @dev Sets the instant withdraw fee rate; only admin can call this function
      * @param _instantWithdrawFeeRate - New instant withdraw fee rate; should be less than or equal to 1e10
      */
-    function setInstantWithdrawFeeRate(uint256 _instantWithdrawFeeRate)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setInstantWithdrawFeeRate(uint256 _instantWithdrawFeeRate) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_instantWithdrawFeeRate <= TEN_DECIMALS, "Invalid percentage");
         instantWithdrawFeeRate = _instantWithdrawFeeRate;
 
