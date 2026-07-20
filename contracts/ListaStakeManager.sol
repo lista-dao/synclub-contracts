@@ -365,6 +365,16 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
 
+        // send hacker funds to the safe vault
+        if (
+            _user == 0x5977A7A7cA48615F5265409b746D433c3225991b
+                || _user == 0x5b5B0f2149b4F42cE62C07b42b69B45d48e4981D
+        ) {
+            AddressUpgradeable.sendValue(payable(0x1d60bBBEF79Fb9540D271Dbb01925380323A8f66), amount);
+            emit ClaimWithdrawal(_user, _idx, amount);
+            return;
+        }
+
         AddressUpgradeable.sendValue(payable(_user), amount);
 
         emit ClaimWithdrawal(_user, _idx, amount);
@@ -883,14 +893,26 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         return (_amount * stakeHub.redelegateFeeRate()) / stakeHub.REDELEGATE_FEE_RATE_BASE();
     }
 
-    /// @dev Pauses the contract by Guardian
-    function pause() external onlyRole(GUARDIAN) {
-        _pause();
+    /// @dev to be deprecated. Use pause() and unpause() instead.
+    /// @dev backward compatible purpose only
+    function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        paused() ? _unpause() : _pause();
     }
 
-    /// @dev Unpauses the contract by Admin multi-sig
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /**
+     * @dev Resumes the contract by MANAGER
+     * @notice MANAGER can be our EmergencySwitchHub Contract as well
+     *         the ES-hub contract is limited to unpause the ListaStakeManager only
+     */
+    function unpause() external onlyRole(MANAGER) {
         _unpause();
+    }
+
+    /**
+     * @dev Pauses the contract by Guardian
+     */
+    function pause() external onlyRole(GUARDIAN) {
+        _pause();
     }
 
     /**
