@@ -429,23 +429,23 @@ contract ListaStakeManagerTest is Test {
     function test_setInstantWhitelist() public {
         assertFalse(stakeManager.instantWhitelist(user_A));
 
-        // only MANAGER can manage the whitelist
+        // only DEFAULT_ADMIN_ROLE can manage the whitelist
         vm.prank(user_A);
         vm.expectRevert();
         stakeManager.setInstantWhitelist(user_A, true);
 
         // zero address is rejected
-        vm.prank(manager);
+        vm.prank(admin);
         vm.expectRevert("ZeroAddress()");
         stakeManager.setInstantWhitelist(address(0), true);
 
-        // manager whitelists user_A
-        vm.prank(manager);
+        // admin whitelists user_A
+        vm.prank(admin);
         stakeManager.setInstantWhitelist(user_A, true);
         assertTrue(stakeManager.instantWhitelist(user_A));
 
-        // manager removes user_A
-        vm.prank(manager);
+        // admin removes user_A
+        vm.prank(admin);
         stakeManager.setInstantWhitelist(user_A, false);
         assertFalse(stakeManager.instantWhitelist(user_A));
     }
@@ -455,7 +455,7 @@ contract ListaStakeManagerTest is Test {
         assertFalse(stakeManager.instantWhitelistOff());
 
         // only DEFAULT_ADMIN_ROLE can flip the global switch
-        vm.prank(manager);
+        vm.prank(user_A);
         vm.expectRevert();
         stakeManager.setInstantWhitelistOff(true);
 
@@ -553,7 +553,7 @@ contract ListaStakeManagerTest is Test {
         stakeManager.setInstantWhitelistOff(false);
 
         // whitelist user_A for instant withdrawal
-        vm.prank(manager);
+        vm.prank(admin);
         stakeManager.setInstantWhitelist(user_A, true);
         assertTrue(stakeManager.instantWhitelist(user_A));
 

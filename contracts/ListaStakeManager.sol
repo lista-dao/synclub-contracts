@@ -724,11 +724,11 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
-     * @dev Sets whether a user is allowed to use instant withdrawal; only manager can call this function
+     * @dev Sets whether a user is allowed to use instant withdrawal; only admin can call this function
      * @param _user - The user address to update
      * @param _status - true to whitelist the user, false to remove
      */
-    function setInstantWhitelist(address _user, bool _status) external override onlyRole(MANAGER) {
+    function setInstantWhitelist(address _user, bool _status) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_user == address(0)) revert ErrorsLib.ZeroAddress();
 
         instantWhitelist[_user] = _status;
