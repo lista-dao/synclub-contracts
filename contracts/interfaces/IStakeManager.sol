@@ -80,6 +80,10 @@ interface IStakeManager {
 
     function setInstantWithdrawFeeRate(uint256 _feeRate) external;
 
+    function setInstantWhitelist(address _user, bool _status) external;
+
+    function setInstantWhitelistOff(bool _off) external;
+
     function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
     function getUserWithdrawalRequests(address _address) external view returns (WithdrawalRequest[] memory);
@@ -143,4 +147,6 @@ interface IStakeManager {
     event ClaimWithdrawFee(address indexed _recipient, uint256 _amount);
     event SetBufferSizePct(uint256 _bufferSizePct);
     event SetInstantWithdrawFeeRate(uint256 _feeRate);
+    event SetInstantWhitelist(address indexed _user, bool _status);
+    event SetInstantWhitelistOff(bool _off);
 }

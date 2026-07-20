@@ -123,6 +123,13 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     // manager role to refund commission
     bytes32 public constant MANAGER = keccak256("MANAGER");
 
+    // Whitelist of users allowed to use instant withdrawal
+    // user address => true/false
+    mapping(address => bool) public instantWhitelist;
+
+    // When true, bypass the instant-withdrawal whitelist (open to all); false (default) enforces it
+    bool public instantWhitelistOff;
+
     struct Refund {
         uint256 dailySlisBnb; // daily slisBnb to be burned
         uint256 remainingSlisBnb; // remaining slisBnb amount to be burned
@@ -295,6 +302,10 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @notice User must have approved this contract to spend SlisBnb
      */
     function instantWithdraw(uint256 _amountInSlisBnb) external whenNotPaused returns (uint256) {
+        if (!instantWhitelistOff && !instantWhitelist[msg.sender]) {
+            revert ErrorsLib.NotWhitelisted();
+        }
+
         uint256 withdrawFee = (_amountInSlisBnb * instantWithdrawFeeRate) / TEN_DECIMALS;
         instantWithdrawFee += withdrawFee;
 
@@ -710,6 +721,27 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         instantWithdrawFeeRate = _instantWithdrawFeeRate;
 
         emit SetInstantWithdrawFeeRate(_instantWithdrawFeeRate);
+    }
+
+    /**
+     * @dev Sets whether a user is allowed to use instant withdrawal; only admin can call this function
+     * @param _user - The user address to update
+     * @param _status - true to whitelist the user, false to remove
+     */
+    function setInstantWhitelist(address _user, bool _status) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_user == address(0)) revert ErrorsLib.ZeroAddress();
+
+        instantWhitelist[_user] = _status;
+        emit SetInstantWhitelist(_user, _status);
+    }
+
+    /**
+     * @dev Enables or disables the instant-withdrawal whitelist globally; only admin can call this function
+     * @param _off - true to bypass the whitelist (open to everyone), false to enforce it
+     */
+    function setInstantWhitelistOff(bool _off) external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        instantWhitelistOff = _off;
+        emit SetInstantWhitelistOff(_off);
     }
 
     function getTotalPooledBnb() public view override returns (uint256) {

@@ -14,4 +14,5 @@ library ErrorsLib {
     error AmountTooLarge();
     error InvalidSynFee();
     error UnclaimableRequest();
+    error NotWhitelisted();
 }
