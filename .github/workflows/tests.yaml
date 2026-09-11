@@ -17,6 +17,32 @@ jobs:
     - name: Check code format
       run: forge fmt --check
 
+    - name: Check contract sizes (EIP-170 runtime limit; excludes tests & scripts)
+      run: |
+        # Compile only deployable src contracts (tests/scripts skipped), then read sizes as JSON.
+        forge build --skip test script
+        forge build --sizes --skip test script --json > sizes.json || true
+        python3 - <<'PY'
+        import json, sys
+        # Park any contract here that is already over the 24576-byte runtime limit and is tracked
+        # separately, so it does not block CI. Empty today: everything deployable still fits.
+        ALLOW = set()
+        data = json.load(open("sizes.json"))
+        over = []
+        for key, v in data.items():
+            name = key.split(" (")[0]
+            if v.get("runtime_margin", 0) < 0 and name not in ALLOW:
+                over.append((key, v["runtime_size"]))
+        if over:
+            print("::error::Contracts exceeding the EIP-170 runtime limit (24576 bytes):")
+            for k, s in sorted(over):
+                print(f"  {k}: {s} bytes")
+            sys.exit(1)
+        print("OK: all deployable contracts within EIP-170 (allowlisted: %s)" % (", ".join(sorted(ALLOW)) or "none"))
+        PY
+      env:
+        FOUNDRY_PROFILE: ci
+
     - name: Run tests
       run: forge test -vvv
       env:
