@@ -16,4 +16,6 @@ library ErrorsLib {
     error UnclaimableRequest();
     error NotWhitelisted();
     error AlreadySet();
+    error SubStakerNotDrained();
+    error NotTimelock();
 }
