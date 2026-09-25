@@ -634,6 +634,9 @@ contract ListaStakeManagerTest is Test {
     }
 
     address private constant GOV_BNB = 0x0000000000000000000000000000000000002005;
+    /// StakeHub.transferGasLimit on BSC — the budget StakeCredit gives a claim payee
+    uint256 private constant TRANSFER_GAS_LIMIT = 5000;
+
     /// Owner of this proxy's ProxyAdmin on mainnet, hardcoded in ListaStakeManager
     address private constant TIMELOCK = 0x07D274a68393E8b8a2CCf19A2ce4Ba3518735253;
 
@@ -1177,5 +1180,38 @@ contract ListaStakeManagerTest is Test {
         );
         vm.prank(bot);
         stakeManager.redelegate(validator_A, validator_B, 1 ether);
+    }
+
+    /// StakeCredit pays a claim with `call{gas: transferGasLimit}` — 5000 on BSC — so the
+    /// SubStaker's `receive()` has to fit inside that budget or every claim reverts. The
+    /// constraint is otherwise held only by a comment; this pins it.
+    function test_receive_fitsInStakeCreditTransferGasLimit() public {
+        SubStaker sub = _bindSubStaker();
+        deal(address(this), 10 ether);
+
+        (bool ok,) = payable(address(sub)).call{gas: TRANSFER_GAS_LIMIT, value: 1 wei}("");
+        assertTrue(ok, "SubStaker.receive() must fit in transferGasLimit");
+        assertEq(address(sub).balance, 1);
+
+        // the manager is the payee of `_send`, so it carries the same constraint
+        (ok,) = payable(address(stakeManager)).call{gas: TRANSFER_GAS_LIMIT, value: 1 wei}("");
+        assertTrue(ok, "ListaStakeManager.receive() must fit in transferGasLimit");
+
+        // control: a receive() that writes storage blows the same budget, so the assertions
+        // above are measuring gas rather than passing unconditionally
+        GreedyReceiver greedy = new GreedyReceiver();
+        (ok,) = payable(address(greedy)).call{gas: TRANSFER_GAS_LIMIT, value: 1 wei}("");
+        assertFalse(ok, "control must run out of gas");
+        (ok,) = payable(address(greedy)).call{value: 1 wei}("");
+        assertTrue(ok, "control is otherwise a working payee");
+    }
+}
+
+/// A payee whose `receive()` writes storage — what the SubStaker must never become.
+contract GreedyReceiver {
+    uint256 private touched;
+
+    receive() external payable {
+        touched = block.number;
     }
 }
