@@ -6,8 +6,11 @@ import "forge-std/console.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../../contracts/ListaStakeManager.sol";
+import {ErrorsLib} from "../../contracts/libraries/ErrorsLib.sol";
 import "../../contracts/SLisBNB.sol";
 import "../../contracts/mock/MockClaim.sol";
+import "../../contracts/SubStaker.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {IStakeManager} from "../../contracts/interfaces/IStakeManager.sol";
 
@@ -47,6 +50,9 @@ contract ListaStakeManagerTest is Test {
     CreditMock public creditMock;
 
     function setUp() public {
+        // BSC holds burned BNB at the zero address; mirror that so guards cannot assume it is empty
+        vm.deal(address(0), 99_245 ether);
+
         uint256 bufferSizePct = 0;
         SLisBNB slisBnbImpl = new SLisBNB();
         TransparentUpgradeableProxy slisBnbProxy = new TransparentUpgradeableProxy(
@@ -135,7 +141,7 @@ contract ListaStakeManagerTest is Test {
         vm.startPrank(admin);
         stakeManager.whitelistValidator(validator_A);
 
-        vm.expectRevert("InvalidAddress()");
+        vm.expectRevert(ErrorsLib.InvalidAddress.selector);
         stakeManager.whitelistValidator(validator_B);
     }
 
@@ -184,7 +190,7 @@ contract ListaStakeManagerTest is Test {
         stakeManager.disableValidator(validator_A);
         stakeManager.removeValidator(validator_A);
 
-        vm.expectRevert("InvalidAddress()");
+        vm.expectRevert(ErrorsLib.InvalidAddress.selector);
         stakeManager.removeValidator(address(0));
         vm.stopPrank();
     }
@@ -203,7 +209,7 @@ contract ListaStakeManagerTest is Test {
         vm.mockCall(STAKE_HUB, abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode(0x00));
 
         vm.startPrank(bot);
-        vm.expectRevert("InactiveValidator()");
+        vm.expectRevert(ErrorsLib.InactiveValidator.selector);
         stakeManager.redelegate(validator_A, validator_B, 0.5 ether);
         vm.stopPrank();
 
@@ -253,6 +259,12 @@ contract ListaStakeManagerTest is Test {
         );
         vm.mockCall(
             credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 1e18), abi.encode(1000000000000000000)
+        );
+        // the manager holds every share on this credit; SubStaker is unbound in these tests
+        vm.mockCall(
+            credit_A,
+            abi.encodeWithSignature("balanceOf(address)", address(stakeManager)),
+            abi.encode(type(uint256).max)
         );
 
         vm.prank(admin);
@@ -305,6 +317,15 @@ contract ListaStakeManagerTest is Test {
         );
         vm.mockCall(
             credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3e18), abi.encode(3000000000000000000)
+        );
+        // the manager holds every share on this credit; SubStaker is unbound in these tests
+        vm.mockCall(
+            credit_A,
+            abi.encodeWithSignature("balanceOf(address)", address(stakeManager)),
+            abi.encode(type(uint256).max)
+        );
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("claimableUnbondRequest(address)", address(stakeManager)), abi.encode(1)
         );
 
         vm.prank(admin);
@@ -399,7 +420,7 @@ contract ListaStakeManagerTest is Test {
         assertEq(entries.length, 1);
         assertEq(abi.decode(entries[0].data, (uint256)), 0.1 ether);
 
-        vm.expectRevert("InvalidAmount()");
+        vm.expectRevert(ErrorsLib.InvalidAmount.selector);
         stakeManager.setMinBnb(0);
 
         vm.stopPrank();
@@ -436,7 +457,7 @@ contract ListaStakeManagerTest is Test {
 
         // zero address is rejected
         vm.prank(admin);
-        vm.expectRevert("ZeroAddress()");
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
         stakeManager.setInstantWhitelist(address(0), true);
 
         // admin whitelists user_A
@@ -446,7 +467,7 @@ contract ListaStakeManagerTest is Test {
 
         // no-op guard: setting the same status reverts
         vm.prank(admin);
-        vm.expectRevert("AlreadySet()");
+        vm.expectRevert(ErrorsLib.AlreadySet.selector);
         stakeManager.setInstantWhitelist(user_A, true);
 
         // admin removes user_A
@@ -466,7 +487,7 @@ contract ListaStakeManagerTest is Test {
 
         // no-op guard: setting the already-stored status reverts
         vm.prank(admin);
-        vm.expectRevert("AlreadySet()");
+        vm.expectRevert(ErrorsLib.AlreadySet.selector);
         stakeManager.setInstantWhitelistOff(false);
 
         // admin disables the whitelist globally
@@ -490,6 +511,12 @@ contract ListaStakeManagerTest is Test {
         );
         vm.mockCall(
             credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3e18), abi.encode(3000000000000000000)
+        );
+        // the manager holds every share on this credit; SubStaker is unbound in these tests
+        vm.mockCall(
+            credit_A,
+            abi.encodeWithSignature("balanceOf(address)", address(stakeManager)),
+            abi.encode(type(uint256).max)
         );
 
         // initialize the stakeManager with total pooled BNB of 1000 Bnb
@@ -547,7 +574,7 @@ contract ListaStakeManagerTest is Test {
         // by default the whitelist is enforced: a non-whitelisted user is rejected
         assertFalse(stakeManager.instantWhitelistOff());
         vm.prank(user_A);
-        vm.expectRevert("NotWhitelisted()");
+        vm.expectRevert(ErrorsLib.NotWhitelisted.selector);
         stakeManager.instantWithdraw(6 ether);
 
         // global switch off: the whitelist is bypassed, so a non-whitelisted user
@@ -555,7 +582,7 @@ contract ListaStakeManagerTest is Test {
         vm.prank(admin);
         stakeManager.setInstantWhitelistOff(true);
         vm.prank(user_A);
-        vm.expectRevert("AmountTooSmall()");
+        vm.expectRevert(ErrorsLib.AmountTooSmall.selector);
         stakeManager.instantWithdraw(0);
 
         // re-enable enforcement
@@ -570,7 +597,7 @@ contract ListaStakeManagerTest is Test {
         vm.startPrank(user_A);
         slisBnb.approve(address(stakeManager), 6 ether);
         uint256 _min = stakeManager.minBnb() - 1;
-        vm.expectRevert("AmountTooSmall()");
+        vm.expectRevert(ErrorsLib.AmountTooSmall.selector);
         stakeManager.instantWithdraw(_min);
 
         stakeManager.instantWithdraw(6 ether);
@@ -604,5 +631,587 @@ contract ListaStakeManagerTest is Test {
         vm.prank(user_A);
         (success,) = address(stakeManager).call{value: 10 ether, gas: 2300}("");
         assertTrue(success);
+    }
+
+    address private constant GOV_BNB = 0x0000000000000000000000000000000000002005;
+    /// StakeHub.transferGasLimit on BSC — the budget StakeCredit gives a claim payee
+    uint256 private constant TRANSFER_GAS_LIMIT = 5000;
+
+    /// Owner of this proxy's ProxyAdmin on mainnet, hardcoded in ListaStakeManager
+    address private constant TIMELOCK = 0x07D274a68393E8b8a2CCf19A2ce4Ba3518735253;
+
+    event SetSubStaker(address indexed _subStaker);
+    event SetSubValidator(address indexed _validator, bool _toSub);
+
+    /// Deploys a SubStaker behind a proxy and binds it
+    function _bindSubStaker() private returns (SubStaker sub) {
+        SubStaker impl = new SubStaker();
+        sub = SubStaker(
+            payable(new ERC1967Proxy(
+                    address(impl), abi.encodeWithSelector(SubStaker.initialize.selector, address(stakeManager))
+                ))
+        );
+
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(address(sub));
+    }
+
+    /// Both govBNB buckets must be steerable: the manager's own, and the SubStaker's
+    function test_bothVoteDelegateesCanBeChanged() public {
+        address listaVoter = makeAddr("listaVoter");
+        address club48 = makeAddr("club48");
+
+        SubStaker sub = _bindSubStaker();
+
+        vm.mockCall(GOV_BNB, abi.encodeWithSignature("delegates(address)"), abi.encode(address(0)));
+        vm.mockCall(GOV_BNB, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(GOV_BNB, abi.encodeWithSignature("getVotes(address)"), abi.encode(uint256(0)));
+        vm.mockCall(GOV_BNB, abi.encodeWithSignature("delegate(address)"), abi.encode());
+
+        // the manager's own tranche
+        vm.expectCall(GOV_BNB, abi.encodeWithSignature("delegate(address)", listaVoter));
+        vm.prank(admin);
+        stakeManager.delegateVoteTo(listaVoter);
+
+        // the SubStaker's tranche, set by the same admin role, straight on the SubStaker
+        vm.expectCall(GOV_BNB, abi.encodeWithSignature("delegate(address)", club48));
+        vm.prank(admin);
+        sub.setVoteDelegatee(club48);
+
+        // and neither is reachable without that role
+        vm.prank(bot);
+        vm.expectRevert();
+        stakeManager.delegateVoteTo(listaVoter);
+
+        vm.prank(bot);
+        vm.expectRevert(SubStaker.NotAdmin.selector);
+        sub.setVoteDelegatee(club48);
+    }
+
+    /// Binding routes every future deposit to the bound address, so DEFAULT_ADMIN must not reach it
+    function test_setSubStaker_onlyTimelock() public {
+        SubStaker impl = new SubStaker();
+        address sub = address(
+            new ERC1967Proxy(
+                address(impl), abi.encodeWithSelector(SubStaker.initialize.selector, address(stakeManager))
+            )
+        );
+
+        vm.prank(admin);
+        vm.expectRevert(ErrorsLib.NotTimelock.selector);
+        stakeManager.setSubStaker(sub);
+
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.NotTimelock.selector);
+        stakeManager.setSubStaker(sub);
+
+        vm.expectEmit(true, false, false, true);
+        emit SetSubStaker(sub);
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(sub);
+        assertEq(stakeManager.subStaker(), sub);
+    }
+
+    /// Flagging a validator before the SubStaker is bound points every bot call at the zero
+    /// address, so the flag must refuse to be set until there is a target.
+    function test_setSubValidator_requiresBoundSubStaker() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+
+        assertEq(stakeManager.subStaker(), address(0));
+
+        vm.prank(admin);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        stakeManager.setSubValidator(validator_A, true);
+
+        // clearing the flag stays available even with nothing bound
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, false);
+
+        _bindSubStaker();
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+        assertTrue(stakeManager.subValidators(validator_A));
+    }
+
+    /// The routing bit lives in its own mapping. Left set through a removal it silently re-arms
+    /// the SubStaker route - pointing at whoever `subStaker` names by then.
+    function test_removeValidator_clearsSubRouting() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNB(address)"), abi.encode(uint256(0)));
+
+        _bindSubStaker();
+
+        vm.startPrank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        stakeManager.setSubValidator(validator_A, true);
+        assertTrue(stakeManager.subValidators(validator_A));
+
+        stakeManager.disableValidator(validator_A);
+
+        vm.expectEmit(true, false, false, true);
+        emit SetSubValidator(validator_A, false);
+        stakeManager.removeValidator(validator_A);
+        vm.stopPrank();
+
+        assertFalse(stakeManager.subValidators(validator_A), "routing bit must not survive removal");
+    }
+
+    /// Native BNB on the SubStaker is ungated, so anyone can block a rebind with one wei.
+    /// Binding sweeps the outgoing account rather than refusing because of it.
+    function test_setSubStaker_sweepsDonationBeforeBinding() public {
+        SubStaker first = _bindSubStaker();
+
+        SubStaker impl = new SubStaker();
+        address second = address(
+            new ERC1967Proxy(
+                address(impl), abi.encodeWithSelector(SubStaker.initialize.selector, address(stakeManager))
+            )
+        );
+
+        // a stranger poisons the outgoing account
+        vm.deal(address(first), 1 wei);
+        assertEq(address(first).balance, 1);
+
+        uint256 managerBefore = address(stakeManager).balance;
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(second);
+
+        assertEq(stakeManager.subStaker(), second);
+        assertEq(address(first).balance, 0, "donation should have been swept");
+        assertEq(address(stakeManager).balance, managerBefore + 1, "and it belongs to the manager");
+    }
+
+    /// An emergency pause must freeze both govBNB tranches. The manager's own `delegateVoteTo`
+    /// is `whenNotPaused`; the SubStaker's entry point has to follow it.
+    function test_setVoteDelegatee_followsManagerPause() public {
+        SubStaker sub = _bindSubStaker();
+        address club48 = makeAddr("club48");
+
+        vm.mockCall(GOV_BNB, abi.encodeWithSignature("delegate(address)"), abi.encode());
+
+        vm.prank(guardian);
+        stakeManager.pause();
+
+        vm.prank(admin);
+        vm.expectRevert(SubStaker.ManagerPaused.selector);
+        sub.setVoteDelegatee(club48);
+
+        vm.prank(manager);
+        stakeManager.unpause();
+
+        vm.expectCall(GOV_BNB, abi.encodeWithSignature("delegate(address)", club48));
+        vm.prank(admin);
+        sub.setVoteDelegatee(club48);
+    }
+
+    /// The share-denominated route is still bounded by `getAmountToUndelegate() + reserveAmount`,
+    /// and the queue-derived half is 0 whenever the queue is settled. So clearing dust depends on
+    /// `reserveAmount` being non-zero - an operational invariant, not a code guarantee. Mainnet
+    /// runs 1 BNB against 100 BNB of `totalReserveAmount`; this pins the dependency down.
+    function test_dustClearingDependsOnNonZeroReserve() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)"), abi.encode(uint256(1)));
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("undelegate(address,uint256)"), abi.encode());
+
+        assertEq(stakeManager.getAmountToUndelegate(), 0, "settled queue reports 0");
+
+        vm.prank(admin);
+        stakeManager.setReserveAmount(0);
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.AmountTooLarge.selector);
+        stakeManager.undelegateSharesFrom(validator_A, 1);
+
+        vm.prank(admin);
+        stakeManager.setReserveAmount(1 ether);
+        vm.prank(bot);
+        assertEq(stakeManager.undelegateSharesFrom(validator_A, 1), 1);
+    }
+
+    /// Dust shares are the reason this exists: repeated partial exits floor BNB->shares, and the
+    /// residue is a share count no BNB amount converts to exactly. Naming the shares clears it.
+    function test_undelegateSharesFrom_clearsDustAndRoutesToHolder() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        // rate is just above 1:1, so 1 wei of BNB floors to 0 shares - the dust is unnameable
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)", uint256(1)), abi.encode(uint256(0))
+        );
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", uint256(1)), abi.encode(uint256(1))
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+
+        vm.prank(admin);
+        stakeManager.setReserveAmount(1 ether);
+
+        // the BNB-denominated call cannot reach a single share
+        vm.prank(bot);
+        vm.expectRevert();
+        stakeManager.undelegateFrom(validator_A, 1);
+
+        // naming the share works, and goes out under the manager's own identity
+        vm.expectCall(STAKE_HUB, abi.encodeWithSignature("undelegate(address,uint256)", validator_A, uint256(1)));
+        vm.prank(bot);
+        assertEq(stakeManager.undelegateSharesFrom(validator_A, 1), 1);
+        assertEq(stakeManager.unbondingBnb(), 1);
+
+        // for a sub validator the same call has to leave through the SubStaker instead
+        SubStaker sub = _bindSubStaker();
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+
+        vm.mockCall(address(sub), abi.encodeWithSignature("undelegate(address,uint256)"), abi.encode());
+        vm.expectCall(address(sub), abi.encodeWithSignature("undelegate(address,uint256)", validator_A, uint256(1)));
+        vm.prank(bot);
+        stakeManager.undelegateSharesFrom(validator_A, 1);
+    }
+
+    /// The share-denominated entry point must honour the same quota ceiling and the same role
+    function test_undelegateSharesFrom_keepsQuotaAndRole() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)"), abi.encode(uint256(100 ether)));
+
+        // nothing queued and no reserve, so 100 BNB of shares is over the ceiling
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.AmountTooLarge.selector);
+        stakeManager.undelegateSharesFrom(validator_A, 1);
+
+        vm.prank(admin);
+        stakeManager.setReserveAmount(100 ether);
+
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("undelegate(address,uint256)"), abi.encode());
+        vm.prank(bot);
+        stakeManager.undelegateSharesFrom(validator_A, 1);
+
+        // and it is bot-only, like its BNB-denominated twin
+        vm.prank(user_A);
+        vm.expectRevert();
+        stakeManager.undelegateSharesFrom(validator_A, 1);
+    }
+
+    /// An unbond request that has matured but not been claimed still blocks a route change.
+    /// StakeCredit only drops a request from `_unbondRequestsQueue` inside `claim`, and
+    /// `lockedBNBs(account, 0)` sums the whole queue with no maturity filter, so the drained
+    /// checks already see it - there is no window where shares are zero but BNB is stranded.
+    function test_maturedUnbondRequestBlocksRouteChange() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        SubStaker first = _bindSubStaker();
+
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_A);
+
+        // no shares left, but a matured request still sits in the credit's unbond queue
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(1 ether)));
+
+        SubStaker impl = new SubStaker();
+        address second = address(
+            new ERC1967Proxy(
+                address(impl), abi.encodeWithSelector(SubStaker.initialize.selector, address(stakeManager))
+            )
+        );
+
+        vm.prank(TIMELOCK);
+        vm.expectRevert(ErrorsLib.SubStakerNotDrained.selector);
+        stakeManager.setSubStaker(second);
+
+        vm.prank(admin);
+        vm.expectRevert(ErrorsLib.AmountTooLarge.selector);
+        stakeManager.setSubValidator(validator_A, true);
+
+        // once the claim is taken the queue empties and both route changes open up
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+        assertTrue(stakeManager.subValidators(validator_A));
+
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(second);
+        assertEq(stakeManager.subStaker(), second);
+        assertTrue(address(first) != second);
+    }
+
+    /// Rebinding away from a SubStaker that still holds something would strand it for good
+    function test_setSubStaker_requiresOldAccountDrained() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        // bind before whitelisting so the first bind walks an empty credit list
+        SubStaker first = _bindSubStaker();
+
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_A);
+
+        SubStaker impl = new SubStaker();
+        SubStaker second = SubStaker(
+            payable(new ERC1967Proxy(
+                    address(impl), abi.encodeWithSelector(SubStaker.initialize.selector, address(stakeManager))
+                ))
+        );
+
+        // still holding shares on a whitelisted validator
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)", address(first)), abi.encode(uint256(1)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+
+        vm.prank(TIMELOCK);
+        vm.expectRevert(ErrorsLib.SubStakerNotDrained.selector);
+        stakeManager.setSubStaker(address(second));
+
+        // rebinding the same address is a no-op and stays allowed
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(address(first));
+
+        // shares gone; a leftover native balance no longer blocks - binding sweeps it first
+        // (see test_setSubStaker_sweepsDonationBeforeBinding)
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)", address(first)), abi.encode(uint256(0)));
+        vm.deal(address(first), 1 wei);
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(address(second));
+        assertEq(stakeManager.subStaker(), address(second));
+        assertEq(address(first).balance, 0);
+    }
+
+    /// Each leg must be priced separately: StakeCredit floors every burn, so converting the total
+
+    /// The launch shape: a fresh validator is whitelisted, handed to the SubStaker, and every
+    /// flow on it routes there without the manager holding anything
+    function test_subValidator_routesEveryFlowToSubStaker() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("minDelegationBNBChange()"), abi.encode(uint256(1 ether)));
+        vm.mockCall(credit_B, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_B, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+
+        SubStaker sub = _bindSubStaker();
+
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_B);
+
+        // a brand new validator is empty on both sides, so no migration is involved
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_B, true);
+        assertTrue(stakeManager.subValidators(validator_B));
+
+        vm.deal(user_A, 100 ether);
+        vm.prank(user_A);
+        stakeManager.deposit{value: 10 ether}();
+
+        vm.mockCall(address(sub), abi.encodeWithSignature("delegate(address,bool)"), abi.encode());
+        vm.expectCall(address(sub), abi.encodeWithSignature("delegate(address,bool)", validator_B, false));
+
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_B, 10 ether);
+
+        // and the position is read off the SubStaker, not this contract
+        vm.mockCall(
+            credit_B, abi.encodeWithSignature("getPooledBNB(address)", address(sub)), abi.encode(uint256(10 ether))
+        );
+        assertEq(stakeManager.getDelegated(validator_B), 10 ether);
+    }
+
+    /// Reassigning a validator that still holds something would orphan that position
+    function test_setSubValidator_requiresValidatorEmpty() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+
+        SubStaker sub = _bindSubStaker();
+        assertTrue(address(sub) != address(0));
+
+        // the manager still holds shares on it
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("balanceOf(address)", address(stakeManager)), abi.encode(uint256(1))
+        );
+        vm.prank(admin);
+        vm.expectRevert(ErrorsLib.AmountTooLarge.selector);
+        stakeManager.setSubValidator(validator_A, true);
+
+        // drained, so the handover goes through
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("balanceOf(address)", address(stakeManager)), abi.encode(uint256(0))
+        );
+        vm.expectEmit(true, false, false, true);
+        emit SetSubValidator(validator_A, true);
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+        assertTrue(stakeManager.subValidators(validator_A));
+
+        // and handing it back is announced too, so indexers see both edges
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)", address(sub)), abi.encode(uint256(0)));
+        vm.expectEmit(true, false, false, true);
+        emit SetSubValidator(validator_A, false);
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, false);
+        assertFalse(stakeManager.subValidators(validator_A));
+    }
+
+    /// Redelegation follows whichever account owns the validator, and cannot cross between them
+    /// The share-denominated move exists to empty a position exactly; it must keep every guard
+    /// its BNB-denominated twin has, and must route through the owning account the same way.
+    function test_redelegateShares_emptiesPositionAndKeepsGuards() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+        // 1 wei of BNB floors to 0 shares, so the BNB-denominated call cannot name this residue
+        vm.mockCall(credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_B, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_B, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode());
+
+        SubStaker sub = _bindSubStaker();
+
+        vm.startPrank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        stakeManager.whitelistValidator(validator_B);
+        vm.stopPrank();
+
+        // the exact share count goes through untouched
+        vm.expectCall(
+            STAKE_HUB,
+            abi.encodeWithSignature("redelegate(address,address,uint256,bool)", validator_A, validator_B, 1, false)
+        );
+        vm.prank(bot);
+        stakeManager.redelegateShares(validator_A, validator_B, 1);
+
+        // same validator on both ends
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.InvalidAddress.selector);
+        stakeManager.redelegateShares(validator_A, validator_A, 1);
+
+        // destination not whitelisted
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.InactiveValidator.selector);
+        stakeManager.redelegateShares(validator_A, makeAddr("stranger"), 1);
+
+        // bot-only
+        vm.prank(user_A);
+        vm.expectRevert();
+        stakeManager.redelegateShares(validator_A, validator_B, 1);
+
+        // crossing accounts is refused, exactly as for redelegate
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.InvalidAddress.selector);
+        stakeManager.redelegateShares(validator_A, validator_B, 1);
+
+        // both on the SubStaker's side: it moves its own position
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_B, true);
+
+        vm.mockCall(address(sub), abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode());
+        vm.expectCall(
+            address(sub),
+            abi.encodeWithSignature("redelegate(address,address,uint256,bool)", validator_A, validator_B, 1, false)
+        );
+        vm.prank(bot);
+        stakeManager.redelegateShares(validator_A, validator_B, 1);
+    }
+
+    function test_redelegate_followsValidatorOwnership() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_B), abi.encode(credit_B)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)"), abi.encode(uint256(1e18)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_B, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_B, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode());
+
+        SubStaker sub = _bindSubStaker();
+
+        vm.startPrank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        stakeManager.whitelistValidator(validator_B);
+        vm.stopPrank();
+
+        // both on the manager's side: it redelegates for itself
+        vm.expectCall(
+            STAKE_HUB,
+            abi.encodeWithSignature("redelegate(address,address,uint256,bool)", validator_A, validator_B, 1e18, false)
+        );
+        vm.prank(bot);
+        stakeManager.redelegate(validator_A, validator_B, 1 ether);
+
+        // hand validator_A over; now the sides differ and the move is refused
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.InvalidAddress.selector);
+        stakeManager.redelegate(validator_A, validator_B, 1 ether);
+
+        // hand validator_B over too, and the SubStaker moves its own position
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_B, true);
+
+        vm.mockCall(address(sub), abi.encodeWithSignature("redelegate(address,address,uint256,bool)"), abi.encode());
+        vm.expectCall(
+            address(sub),
+            abi.encodeWithSignature("redelegate(address,address,uint256,bool)", validator_A, validator_B, 1e18, false)
+        );
+        vm.prank(bot);
+        stakeManager.redelegate(validator_A, validator_B, 1 ether);
+    }
+
+    /// StakeCredit pays a claim with `call{gas: transferGasLimit}` — 5000 on BSC — so the
+    /// SubStaker's `receive()` has to fit inside that budget or every claim reverts. The
+    /// constraint is otherwise held only by a comment; this pins it.
+    function test_receive_fitsInStakeCreditTransferGasLimit() public {
+        SubStaker sub = _bindSubStaker();
+        deal(address(this), 10 ether);
+
+        (bool ok,) = payable(address(sub)).call{gas: TRANSFER_GAS_LIMIT, value: 1 wei}("");
+        assertTrue(ok, "SubStaker.receive() must fit in transferGasLimit");
+        assertEq(address(sub).balance, 1);
+
+        // the manager is the payee of `_send`, so it carries the same constraint
+        (ok,) = payable(address(stakeManager)).call{gas: TRANSFER_GAS_LIMIT, value: 1 wei}("");
+        assertTrue(ok, "ListaStakeManager.receive() must fit in transferGasLimit");
+
+        // control: a receive() that writes storage blows the same budget, so the assertions
+        // above are measuring gas rather than passing unconditionally
+        GreedyReceiver greedy = new GreedyReceiver();
+        (ok,) = payable(address(greedy)).call{gas: TRANSFER_GAS_LIMIT, value: 1 wei}("");
+        assertFalse(ok, "control must run out of gas");
+        (ok,) = payable(address(greedy)).call{value: 1 wei}("");
+        assertTrue(ok, "control is otherwise a working payee");
+    }
+}
+
+/// A payee whose `receive()` writes storage — what the SubStaker must never become.
+contract GreedyReceiver {
+    uint256 private touched;
+
+    receive() external payable {
+        touched = block.number;
     }
 }
