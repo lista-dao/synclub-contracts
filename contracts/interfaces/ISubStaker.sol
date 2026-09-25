@@ -3,6 +3,10 @@ pragma solidity ^0.8.0;
 
 /// @dev The staking entry points are omitted on purpose: they mirror `IStakeHub` exactly, so
 ///      callers reach them through `IStakeHub(subStaker)` and need no second call site.
+interface IPausable {
+    function paused() external view returns (bool);
+}
+
 interface ISubStaker {
     event VoteDelegateeSet(address indexed delegatee);
     event Swept(uint256 amount);

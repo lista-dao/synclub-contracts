@@ -16,6 +16,7 @@ import {IStakeManager} from "./interfaces/IStakeManager.sol";
 import {ISLisBNB} from "./interfaces/ISLisBNB.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
 import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
+import {ISubStaker} from "./interfaces/ISubStaker.sol";
 
 /**
  * @title Stake Manager Contract
@@ -712,6 +713,12 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
         syncCredits(_address, true);
         delete validators[_address];
 
+        // Separate mapping: left set, it silently re-arms the SubStaker route on re-whitelist
+        if (subValidators[_address]) {
+            delete subValidators[_address];
+            emit SetSubValidator(_address, false);
+        }
+
         emit RemoveValidator(_address);
     }
 
@@ -766,7 +773,12 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      */
     function setSubStaker(address _subStaker) external {
         if (msg.sender != TIMELOCK) revert ErrorsLib.NotTimelock();
-        SLisLibrary.requireBindable(creditContracts, subStaker, _subStaker, address(this));
+
+        // A donated wei would fail the drained check; sweeping first sends it home instead
+        address current = subStaker;
+        if (current != address(0) && current != _subStaker) ISubStaker(current).sweep();
+
+        SLisLibrary.requireBindable(creditContracts, current, _subStaker, address(this));
 
         subStaker = _subStaker;
 
@@ -780,6 +792,9 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
      * @notice Both sides must be empty on it, or the position held would stop being routed to
      */
     function setSubValidator(address _validator, bool _toSub) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Without a target the route would point every bot call at the zero address
+        if (_toSub && subStaker == address(0)) revert ErrorsLib.ZeroAddress();
+
         IStakeCredit credit = IStakeCredit(IStakeHub(STAKE_HUB).getValidatorCreditContract(_validator));
         address holder = _holder(_validator);
         if (credit.balanceOf(holder) != 0 || credit.lockedBNBs(holder, 0) != 0) {

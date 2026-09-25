@@ -7,7 +7,7 @@ import {IAccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/acc
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {IVotesUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/utils/IVotesUpgradeable.sol";
 
-import {ISubStaker} from "./interfaces/ISubStaker.sol";
+import {ISubStaker, IPausable} from "./interfaces/ISubStaker.sol";
 import {IStakeHub} from "./interfaces/IStakeHub.sol";
 import {IStakeCredit} from "./interfaces/IStakeCredit.sol";
 
@@ -40,6 +40,7 @@ contract SubStaker is ISubStaker, Initializable, UUPSUpgradeable {
     error ZeroAddress();
     error TransferFailed();
     error NothingToClaim();
+    error ManagerPaused();
 
     modifier onlyStakeManager() {
         if (msg.sender != stakeManager) revert NotStakeManager();
@@ -107,9 +108,11 @@ contract SubStaker is ISubStaker, Initializable, UUPSUpgradeable {
      * @dev Points this account's entire govBNB balance at `_delegatee`
      * @param _delegatee - Address to receive the voting power
      * @notice Callable by the manager's DEFAULT_ADMIN_ROLE. Moves voting power, never BNB
+     * @notice Follows the manager's pause, so both govBNB tranches freeze together
      */
     function setVoteDelegatee(address _delegatee) external override {
         if (!IAccessControlUpgradeable(stakeManager).hasRole(0x00, msg.sender)) revert NotAdmin();
+        if (IPausable(stakeManager).paused()) revert ManagerPaused();
 
         IVotesUpgradeable(GOV_BNB).delegate(_delegatee);
 

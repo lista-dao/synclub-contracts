@@ -709,6 +709,131 @@ contract ListaStakeManagerTest is Test {
         assertEq(stakeManager.subStaker(), sub);
     }
 
+    /// Flagging a validator before the SubStaker is bound points every bot call at the zero
+    /// address, so the flag must refuse to be set until there is a target.
+    function test_setSubValidator_requiresBoundSubStaker() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+
+        assertEq(stakeManager.subStaker(), address(0));
+
+        vm.prank(admin);
+        vm.expectRevert(ErrorsLib.ZeroAddress.selector);
+        stakeManager.setSubValidator(validator_A, true);
+
+        // clearing the flag stays available even with nothing bound
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, false);
+
+        _bindSubStaker();
+        vm.prank(admin);
+        stakeManager.setSubValidator(validator_A, true);
+        assertTrue(stakeManager.subValidators(validator_A));
+    }
+
+    /// The routing bit lives in its own mapping. Left set through a removal it silently re-arms
+    /// the SubStaker route - pointing at whoever `subStaker` names by then.
+    function test_removeValidator_clearsSubRouting() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("lockedBNBs(address,uint256)"), abi.encode(uint256(0)));
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNB(address)"), abi.encode(uint256(0)));
+
+        _bindSubStaker();
+
+        vm.startPrank(admin);
+        stakeManager.whitelistValidator(validator_A);
+        stakeManager.setSubValidator(validator_A, true);
+        assertTrue(stakeManager.subValidators(validator_A));
+
+        stakeManager.disableValidator(validator_A);
+
+        vm.expectEmit(true, false, false, true);
+        emit SetSubValidator(validator_A, false);
+        stakeManager.removeValidator(validator_A);
+        vm.stopPrank();
+
+        assertFalse(stakeManager.subValidators(validator_A), "routing bit must not survive removal");
+    }
+
+    /// Native BNB on the SubStaker is ungated, so anyone can block a rebind with one wei.
+    /// Binding sweeps the outgoing account rather than refusing because of it.
+    function test_setSubStaker_sweepsDonationBeforeBinding() public {
+        SubStaker first = _bindSubStaker();
+
+        SubStaker impl = new SubStaker();
+        address second = address(
+            new ERC1967Proxy(
+                address(impl), abi.encodeWithSelector(SubStaker.initialize.selector, address(stakeManager))
+            )
+        );
+
+        // a stranger poisons the outgoing account
+        vm.deal(address(first), 1 wei);
+        assertEq(address(first).balance, 1);
+
+        uint256 managerBefore = address(stakeManager).balance;
+        vm.prank(TIMELOCK);
+        stakeManager.setSubStaker(second);
+
+        assertEq(stakeManager.subStaker(), second);
+        assertEq(address(first).balance, 0, "donation should have been swept");
+        assertEq(address(stakeManager).balance, managerBefore + 1, "and it belongs to the manager");
+    }
+
+    /// An emergency pause must freeze both govBNB tranches. The manager's own `delegateVoteTo`
+    /// is `whenNotPaused`; the SubStaker's entry point has to follow it.
+    function test_setVoteDelegatee_followsManagerPause() public {
+        SubStaker sub = _bindSubStaker();
+        address club48 = makeAddr("club48");
+
+        vm.mockCall(GOV_BNB, abi.encodeWithSignature("delegate(address)"), abi.encode());
+
+        vm.prank(guardian);
+        stakeManager.pause();
+
+        vm.prank(admin);
+        vm.expectRevert(SubStaker.ManagerPaused.selector);
+        sub.setVoteDelegatee(club48);
+
+        vm.prank(manager);
+        stakeManager.unpause();
+
+        vm.expectCall(GOV_BNB, abi.encodeWithSignature("delegate(address)", club48));
+        vm.prank(admin);
+        sub.setVoteDelegatee(club48);
+    }
+
+    /// The share-denominated route is still bounded by `getAmountToUndelegate() + reserveAmount`,
+    /// and the queue-derived half is 0 whenever the queue is settled. So clearing dust depends on
+    /// `reserveAmount` being non-zero - an operational invariant, not a code guarantee. Mainnet
+    /// runs 1 BNB against 100 BNB of `totalReserveAmount`; this pins the dependency down.
+    function test_dustClearingDependsOnNonZeroReserve() public {
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)"), abi.encode(uint256(1)));
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("undelegate(address,uint256)"), abi.encode());
+
+        assertEq(stakeManager.getAmountToUndelegate(), 0, "settled queue reports 0");
+
+        vm.prank(admin);
+        stakeManager.setReserveAmount(0);
+        vm.prank(bot);
+        vm.expectRevert(ErrorsLib.AmountTooLarge.selector);
+        stakeManager.undelegateSharesFrom(validator_A, 1);
+
+        vm.prank(admin);
+        stakeManager.setReserveAmount(1 ether);
+        vm.prank(bot);
+        assertEq(stakeManager.undelegateSharesFrom(validator_A, 1), 1);
+    }
+
     /// Dust shares are the reason this exists: repeated partial exits floor BNB->shares, and the
     /// residue is a share count no BNB amount converts to exactly. Naming the shares clears it.
     function test_undelegateSharesFrom_clearsDustAndRoutesToHolder() public {
@@ -849,18 +974,14 @@ contract ListaStakeManagerTest is Test {
         vm.prank(TIMELOCK);
         stakeManager.setSubStaker(address(first));
 
-        // shares gone but BNB stranded on the account still blocks the swap
+        // shares gone; a leftover native balance no longer blocks - binding sweeps it first
+        // (see test_setSubStaker_sweepsDonationBeforeBinding)
         vm.mockCall(credit_A, abi.encodeWithSignature("balanceOf(address)", address(first)), abi.encode(uint256(0)));
         vm.deal(address(first), 1 wei);
         vm.prank(TIMELOCK);
-        vm.expectRevert(ErrorsLib.SubStakerNotDrained.selector);
-        stakeManager.setSubStaker(address(second));
-
-        // fully empty, so the swap goes through
-        vm.deal(address(first), 0);
-        vm.prank(TIMELOCK);
         stakeManager.setSubStaker(address(second));
         assertEq(stakeManager.subStaker(), address(second));
+        assertEq(address(first).balance, 0);
     }
 
     /// Each leg must be priced separately: StakeCredit floors every burn, so converting the total
