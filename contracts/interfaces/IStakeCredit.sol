@@ -19,6 +19,7 @@ interface IStakeCredit {
     function unbondRequest(address delegator, uint256 _index) external view returns (UnbondRequest memory);
     function claimableUnbondRequest(address delegator) external view returns (uint256);
     function getPooledBNB(address account) external view returns (uint256);
+    function validator() external view returns (address);
 
     function lockedBNBs(address delegator, uint256 number) external view returns (uint256);
 }

@@ -40,6 +40,8 @@ interface IStakeManager {
 
     function redelegate(address srcValidator, address dstValidator, uint256 shares) external;
 
+    function redelegateShares(address srcValidator, address dstValidator, uint256 shares) external;
+
     function requestWithdraw(uint256 _amountInSnBnb) external;
 
     function claimWithdraw(uint256 _idx) external;
@@ -47,6 +49,8 @@ interface IStakeManager {
     function claimWithdrawFor(address _user, uint256 _idx) external;
 
     function undelegateFrom(address _operator, uint256 _amount) external returns (uint256 _actualBnbAmount);
+
+    function undelegateSharesFrom(address _operator, uint256 _shares) external returns (uint256 _actualBnbAmount);
 
     function claimUndelegated(address _validator) external returns (uint256, uint256);
 
@@ -142,6 +146,8 @@ interface IStakeManager {
     event SyncCreditContract(address indexed _validator, address _credit, bool toRemove);
     event SetMinBnb(uint256 _minBnb);
     event DelegateVoteTo(address _delegateTo, uint256 _votesChange);
+    event SetSubStaker(address indexed _subStaker);
+    event SetSubValidator(address indexed _validator, bool _toSub);
     event RefundCommission(uint256 _bnbAmount, uint256 _dailySlisBnb, uint256 _days, uint256 _remainingSlisBnb);
     event InstantWithdraw(address indexed _user, uint256 _slisBnbAmount, uint256 _bnbAmountAfterFee, uint256 _fee);
     event ClaimWithdrawFee(address indexed _recipient, uint256 _amount);

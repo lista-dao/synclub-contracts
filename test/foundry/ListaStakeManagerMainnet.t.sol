@@ -277,7 +277,7 @@ contract ListaStakeManagerMainnet is Test {
 
     function test_withdrawReserve() public {
         vm.startPrank(admin);
-        vm.expectRevert("InvalidAmount()");
+        vm.expectRevert(ErrorsLib.InvalidAmount.selector);
         stakeManager.withdrawReserve(0);
 
         stakeManager.withdrawReserve(100 ether);
