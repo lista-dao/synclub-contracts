@@ -411,6 +411,119 @@ contract ListaStakeManagerTest is Test {
         assertEq(balanceAfter - balanceBefore, 1 ether);
     }
 
+    event ClaimWithdrawal(address indexed _account, uint256 _idx, uint256 _amount);
+
+    /// user_A holds confirmed requests uuid 1 (2 BNB), uuid 2 (1 BNB), uuid 3 (0.5 BNB)
+    function _requestAndConfirmThree() private {
+        deal(user_A, 100 ether);
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("getValidatorCreditContract(address)", validator_A), abi.encode(credit_A)
+        );
+        vm.mockCall(STAKE_HUB, abi.encodeWithSignature("minDelegationBNBChange()"), abi.encode(0));
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getSharesByPooledBNB(uint256)", 3.5 ether), abi.encode(3.5 ether)
+        );
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("getPooledBNBByShares(uint256)", 3.5 ether), abi.encode(3.5 ether)
+        );
+        vm.mockCall(
+            credit_A,
+            abi.encodeWithSignature("balanceOf(address)", address(stakeManager)),
+            abi.encode(type(uint256).max)
+        );
+        vm.mockCall(
+            credit_A, abi.encodeWithSignature("claimableUnbondRequest(address)", address(stakeManager)), abi.encode(1)
+        );
+
+        vm.prank(admin);
+        stakeManager.whitelistValidator(validator_A);
+
+        vm.prank(user_A);
+        stakeManager.deposit{value: 10 ether}();
+        vm.prank(bot);
+        stakeManager.delegateTo(validator_A, 10 ether);
+
+        vm.startPrank(user_A);
+        slisBnb.approve(address(stakeManager), 3.5 ether);
+        stakeManager.requestWithdraw(2 ether);
+        stakeManager.requestWithdraw(1 ether);
+        stakeManager.requestWithdraw(0.5 ether);
+        vm.stopPrank();
+
+        vm.mockCall(
+            STAKE_HUB, abi.encodeWithSignature("undelegate(address,uint256)", validator_A, 3.5 ether), abi.encode(0)
+        );
+        vm.prank(bot);
+        stakeManager.undelegateFrom(validator_A, 3.5 ether);
+
+        skip(7 days);
+
+        deal(credit_A, 1000 ether);
+        vm.etch(STAKE_HUB, address(claimMock).code);
+        vm.etch(credit_A, address(creditMock).code);
+        credit_A.call(abi.encodeWithSignature("setStakeManager(address)", address(stakeManager)));
+        credit_A.call(abi.encodeWithSignature("setAmount(uint256)", 3.5 ether));
+        STAKE_HUB.call(abi.encodeWithSignature("setCreditMock(address)", credit_A));
+
+        vm.prank(bot);
+        stakeManager.claimUndelegated(validator_A);
+        assertEq(stakeManager.nextConfirmedRequestUUID(), 4);
+    }
+
+    function _claimByUUID(uint256 _uuid) private returns (uint256) {
+        uint256 balanceBefore = user_A.balance;
+        vm.prank(user_A);
+        stakeManager.claimWithdrawByUUID(_uuid);
+        return user_A.balance - balanceBefore;
+    }
+
+    function test_claimWithdrawByUUID_survivesSwapAndPop() public {
+        _requestAndConfirmThree();
+
+        assertEq(_claimByUUID(1), 2 ether);
+
+        // swap-and-pop moved uuid 3 into index 0
+        IStakeManager.WithdrawalRequest[] memory requests = stakeManager.getUserWithdrawalRequests(user_A);
+        assertEq(requests.length, 2);
+        assertEq(requests[0].uuid, 3);
+        assertEq(requests[1].uuid, 2);
+
+        // the event carries the index the uuid resolved to
+        vm.expectEmit(true, false, false, true);
+        emit ClaimWithdrawal(user_A, 1, 1 ether);
+        assertEq(_claimByUUID(2), 1 ether);
+
+        assertEq(_claimByUUID(3), 0.5 ether);
+        assertEq(stakeManager.getUserWithdrawalRequests(user_A).length, 0);
+
+        vm.prank(user_A);
+        vm.expectRevert(ErrorsLib.InvalidUuid.selector);
+        stakeManager.claimWithdrawByUUID(3);
+    }
+
+    function test_claimWithdrawByUUID_reverts() public {
+        _requestAndConfirmThree();
+
+        // another user's uuid is not found in the caller's array
+        vm.prank(user_B);
+        vm.expectRevert(ErrorsLib.InvalidUuid.selector);
+        stakeManager.claimWithdrawByUUID(1);
+
+        // uuid 4 is not confirmed yet
+        vm.startPrank(user_A);
+        slisBnb.approve(address(stakeManager), 1 ether);
+        stakeManager.requestWithdraw(1 ether);
+        vm.expectRevert(ErrorsLib.UnclaimableRequest.selector);
+        stakeManager.claimWithdrawByUUID(4);
+        vm.stopPrank();
+
+        vm.prank(guardian);
+        stakeManager.pause();
+        vm.prank(user_A);
+        vm.expectRevert("Pausable: paused");
+        stakeManager.claimWithdrawByUUID(1);
+    }
+
     function test_setMinBnb() public {
         vm.recordLogs();
         vm.startPrank(admin);

@@ -18,4 +18,5 @@ library ErrorsLib {
     error AlreadySet();
     error SubStakerNotDrained();
     error NotTimelock();
+    error InvalidUuid();
 }
