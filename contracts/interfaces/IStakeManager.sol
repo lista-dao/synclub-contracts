@@ -46,6 +46,8 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
+    function claimWithdrawByUUID(uint256 _uuid) external;
+
     function claimWithdrawFor(address _user, uint256 _idx) external;
 
     function undelegateFrom(address _operator, uint256 _amount) external returns (uint256 _actualBnbAmount);

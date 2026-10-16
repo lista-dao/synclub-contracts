@@ -369,6 +369,23 @@ contract ListaStakeManager is IStakeManager, Initializable, PausableUpgradeable,
     }
 
     /**
+     * @dev Users use this function to claim a requested withdrawal by its uuid
+     * @param _uuid - The uuid of the request in the array returns by getUserWithdrawalRequests()
+     * @notice Indexes shift after each claim (swap-and-pop); the uuid does not
+     */
+    function claimWithdrawByUUID(uint256 _uuid) external override whenNotPaused {
+        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[msg.sender];
+        uint256 length = userRequests.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (userRequests[i].uuid == _uuid) {
+                _claimWithdrawFor(msg.sender, i);
+                return;
+            }
+        }
+        revert ErrorsLib.InvalidUuid();
+    }
+
+    /**
      * @dev This function allows to claim the requested withdrawals for other users; only bot can call this function
      * @param _user - The address of the user who raised WithdrawRequest
      * @param _idx - The index of the request in the array returns by getUserWithdrawalRequests()
